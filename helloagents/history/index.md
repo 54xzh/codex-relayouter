@@ -30,6 +30,7 @@
 | 202601190003 | session_cwd_autosync | 功能 | ?已完成（会话 cwd 自动使用） | [202601190003_session_cwd_autosync](2026-01/202601190003_session_cwd_autosync/) |
 | 202601190015 | workspace_recent_cwd | 功能 | ?已完成（最近 cwd 快速切换） | [202601190015_workspace_recent_cwd](2026-01/202601190015_workspace_recent_cwd/) |
 | 202601190157 | chat_images | 功能 | ?已完成（聊天图片上传/回放显示） | [202601190157_chat_images](2026-01/202601190157_chat_images/) |
+| 202601190234 | project_docs | 文档 | ?已完成（仓库入口文档） | [202601190234_project_docs](2026-01/202601190234_project_docs/) |
 
 ---
 
@@ -59,3 +60,4 @@
 - [202601190003_session_cwd_autosync](2026-01/202601190003_session_cwd_autosync/) - WinUI：选择已有会话后自动使用 cwd（同步到 WorkingDirectory）
 - [202601190015_workspace_recent_cwd](2026-01/202601190015_workspace_recent_cwd/) - WinUI：Chat 页工作区菜单展示最近 5 条 cwd（快速切换）
 - [202601190157_chat_images](2026-01/202601190157_chat_images/) - 聊天图片：上传图片输入 + 会话回放解码显示（data URL）
+- [202601190234_project_docs](2026-01/202601190234_project_docs/) - 文档：新增仓库入口 README（简介/快速开始/索引）
