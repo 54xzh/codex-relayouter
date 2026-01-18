@@ -11,6 +11,7 @@
 
     <Page.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <FontFamily x:Key="ChineseUIFont">Microsoft YaHei UI,Microsoft YaHei,Segoe UI</FontFamily>
     </Page.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="16" RowSpacing="12">
@@ -189,26 +190,25 @@
             Grid.Row="3"
             Orientation="Horizontal"
             Spacing="8"
-            HorizontalAlignment="Left"
-            TextElement.FontFamily="Microsoft YaHei UI">
+            HorizontalAlignment="Left">
 
             <!-- 工作区设置 -->
             <DropDownButton x:Name="WorkspaceButton" ToolTipService.ToolTip="工作区设置">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8B7;" FontSize="14" />
-                    <TextBlock x:Name="WorkspaceText" Text="未选择" VerticalAlignment="Center" />
+                    <TextBlock x:Name="WorkspaceText" Text="未选择" VerticalAlignment="Center" FontFamily="{StaticResource ChineseUIFont}" />
                 </StackPanel>
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem x:Name="WorkspaceOpenInExplorerMenuItem" Text="在资源管理器中打开" Click="WorkspaceOpenInExplorer_Click" IsEnabled="False" />
-                        <MenuFlyoutItem Text="重新选择..." Click="WorkspaceReselect_Click" />
+                        <MenuFlyoutItem x:Name="WorkspaceOpenInExplorerMenuItem" Text="在资源管理器中打开" Click="WorkspaceOpenInExplorer_Click" IsEnabled="False" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="重新选择..." Click="WorkspaceReselect_Click" FontFamily="{StaticResource ChineseUIFont}" />
                         <MenuFlyoutSeparator x:Name="WorkspaceRecentSeparator" />
-                        <MenuFlyoutItem x:Name="WorkspaceRecentHeaderMenuItem" Text="最近使用" IsEnabled="False" />
-                        <MenuFlyoutItem x:Name="RecentWorkspace1MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" />
-                        <MenuFlyoutItem x:Name="RecentWorkspace2MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" />
-                        <MenuFlyoutItem x:Name="RecentWorkspace3MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" />
-                        <MenuFlyoutItem x:Name="RecentWorkspace4MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" />
-                        <MenuFlyoutItem x:Name="RecentWorkspace5MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" />
+                        <MenuFlyoutItem x:Name="WorkspaceRecentHeaderMenuItem" Text="最近使用" IsEnabled="False" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem x:Name="RecentWorkspace1MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem x:Name="RecentWorkspace2MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem x:Name="RecentWorkspace3MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem x:Name="RecentWorkspace4MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem x:Name="RecentWorkspace5MenuItem" Click="RecentWorkspace_Click" Visibility="Collapsed" FontFamily="{StaticResource ChineseUIFont}" />
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
@@ -217,14 +217,14 @@
             <DropDownButton x:Name="SandboxButton" ToolTipService.ToolTip="沙箱模式">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE71C;" FontSize="14" />
-                    <TextBlock x:Name="SandboxText" Text="默认" VerticalAlignment="Center" />
+                    <TextBlock x:Name="SandboxText" Text="默认" VerticalAlignment="Center" FontFamily="{StaticResource ChineseUIFont}" />
                 </StackPanel>
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem Text="默认" Click="SandboxOption_Click" Tag="" />
-                        <MenuFlyoutItem Text="read-only" Click="SandboxOption_Click" Tag="read-only" />
-                        <MenuFlyoutItem Text="workspace-write" Click="SandboxOption_Click" Tag="workspace-write" />
-                        <MenuFlyoutItem Text="danger-full-access" Click="SandboxOption_Click" Tag="danger-full-access" />
+                        <MenuFlyoutItem Text="默认" Click="SandboxOption_Click" Tag="" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="read-only" Click="SandboxOption_Click" Tag="read-only" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="workspace-write" Click="SandboxOption_Click" Tag="workspace-write" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="danger-full-access" Click="SandboxOption_Click" Tag="danger-full-access" FontFamily="{StaticResource ChineseUIFont}" />
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
@@ -233,15 +233,15 @@
             <DropDownButton x:Name="ApprovalButton" ToolTipService.ToolTip="批准策略">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8FB;" FontSize="14" />
-                    <TextBlock x:Name="ApprovalText" Text="默认" VerticalAlignment="Center" />
+                    <TextBlock x:Name="ApprovalText" Text="默认" VerticalAlignment="Center" FontFamily="{StaticResource ChineseUIFont}" />
                 </StackPanel>
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem Text="默认" Click="ApprovalOption_Click" Tag="" />
-                        <MenuFlyoutItem Text="untrusted" Click="ApprovalOption_Click" Tag="untrusted" />
-                        <MenuFlyoutItem Text="on-request" Click="ApprovalOption_Click" Tag="on-request" />
-                        <MenuFlyoutItem Text="on-failure" Click="ApprovalOption_Click" Tag="on-failure" />
-                        <MenuFlyoutItem Text="never" Click="ApprovalOption_Click" Tag="never" />
+                        <MenuFlyoutItem Text="默认" Click="ApprovalOption_Click" Tag="" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="untrusted" Click="ApprovalOption_Click" Tag="untrusted" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="on-request" Click="ApprovalOption_Click" Tag="on-request" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="on-failure" Click="ApprovalOption_Click" Tag="on-failure" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="never" Click="ApprovalOption_Click" Tag="never" FontFamily="{StaticResource ChineseUIFont}" />
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
@@ -250,15 +250,15 @@
             <DropDownButton x:Name="ModelButton" ToolTipService.ToolTip="模型">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE99A;" FontSize="14" />
-                    <TextBlock x:Name="ModelText" Text="默认" VerticalAlignment="Center" />
+                    <TextBlock x:Name="ModelText" Text="默认" VerticalAlignment="Center" FontFamily="{StaticResource ChineseUIFont}" />
                 </StackPanel>
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem Text="默认" Click="ModelOption_Click" Tag="" />
-                        <MenuFlyoutItem Text="gpt-5.2" Click="ModelOption_Click" Tag="gpt-5.2" />
-                        <MenuFlyoutItem Text="gpt-5.2-codex" Click="ModelOption_Click" Tag="gpt-5.2-codex" />
-                        <MenuFlyoutItem Text="gpt-5.1-codex-max" Click="ModelOption_Click" Tag="gpt-5.1-codex-max" />
-                        <MenuFlyoutItem Text="gpt-5.1-codex-mini" Click="ModelOption_Click" Tag="gpt-5.1-codex-mini" />
+                        <MenuFlyoutItem Text="默认" Click="ModelOption_Click" Tag="" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="gpt-5.2" Click="ModelOption_Click" Tag="gpt-5.2" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="gpt-5.2-codex" Click="ModelOption_Click" Tag="gpt-5.2-codex" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="gpt-5.1-codex-max" Click="ModelOption_Click" Tag="gpt-5.1-codex-max" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="gpt-5.1-codex-mini" Click="ModelOption_Click" Tag="gpt-5.1-codex-mini" FontFamily="{StaticResource ChineseUIFont}" />
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
@@ -267,15 +267,15 @@
             <DropDownButton x:Name="ThinkingButton" ToolTipService.ToolTip="思考程度">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE945;" FontSize="14" />
-                    <TextBlock x:Name="ThinkingText" Text="默认" VerticalAlignment="Center" />
+                    <TextBlock x:Name="ThinkingText" Text="默认" VerticalAlignment="Center" FontFamily="{StaticResource ChineseUIFont}" />
                 </StackPanel>
                 <DropDownButton.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem Text="默认" Click="ThinkingOption_Click" Tag="" />
-                        <MenuFlyoutItem Text="low" Click="ThinkingOption_Click" Tag="low" />
-                        <MenuFlyoutItem Text="medium" Click="ThinkingOption_Click" Tag="medium" />
-                        <MenuFlyoutItem Text="high" Click="ThinkingOption_Click" Tag="high" />
-                        <MenuFlyoutItem Text="xhigh" Click="ThinkingOption_Click" Tag="xhigh" />
+                        <MenuFlyoutItem Text="默认" Click="ThinkingOption_Click" Tag="" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="low" Click="ThinkingOption_Click" Tag="low" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="medium" Click="ThinkingOption_Click" Tag="medium" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="high" Click="ThinkingOption_Click" Tag="high" FontFamily="{StaticResource ChineseUIFont}" />
+                        <MenuFlyoutItem Text="xhigh" Click="ThinkingOption_Click" Tag="xhigh" FontFamily="{StaticResource ChineseUIFont}" />
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>

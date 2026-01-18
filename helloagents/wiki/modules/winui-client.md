@@ -11,7 +11,8 @@
 ## 规范
 
 ### XAML 约定
-- 字体：容器（如 `StackPanel`）不支持直接设置 `FontFamily`；需要统一字体时用 `TextElement.FontFamily`（或在 `Resources` 中对 `TextBlock`/`Control` 定义 Style）。
+- 字体：容器（如 `StackPanel`）不支持 `FontFamily`，也不要在容器上使用 `TextElement.FontFamily`；需要统一字体时请在文本控件（如 `TextBlock`）上设置 `FontFamily`，或在 `Resources` 中对 `TextBlock`/`Control` 定义 Style。
+- Flyout 菜单：`MenuFlyoutItem` 的字体通常不会从触发按钮内容继承；需要统一中文字体时请在 `MenuFlyoutItem` 上显式设置 `FontFamily`（或通过资源字典/Style 统一配置）。
 
 ### 需求: GUI 核心交互
 **模块:** WinUI Client
