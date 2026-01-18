@@ -31,6 +31,7 @@ public sealed partial class ChatPage : Page
     private readonly HttpClient _httpClient = new();
     private readonly Dictionary<string, ChatMessageViewModel> _runToMessage = new();
     private string? _historyLoadedForSessionId;
+    private int _autoConnectAttempted;
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = new();
 
@@ -51,7 +52,46 @@ public sealed partial class ChatPage : Page
         UpdateConnectionUI();
         ApplySessionStateToUi();
         ApplyConnectionSettingsToUi();
+        await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
+    }
+
+    private async Task EnsureBackendAndConnectAsync()
+    {
+        if (Interlocked.Exchange(ref _autoConnectAttempted, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            await App.BackendServer.EnsureStartedAsync();
+
+            var wsUri = App.BackendServer.WebSocketUri;
+            if (wsUri is null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(App.ConnectionService.ServerUrl))
+            {
+                App.ConnectionService.ServerUrl = wsUri.ToString();
+            }
+
+            if (!App.ConnectionService.IsConnected)
+            {
+                ConnectionStatusText.Text = "连接中…";
+                await App.ConnectionService.ConnectAsync(wsUri, CancellationToken.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetSessionStatus($"自动连接失败: {ex.Message}");
+        }
+        finally
+        {
+            UpdateConnectionUI();
+        }
     }
 
     private void ApplyConnectionSettingsToUi()

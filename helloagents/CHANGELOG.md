@@ -21,6 +21,7 @@
 
 ### 修复
 - 修复 MSIX 调试部署/打包场景下未包含 `bridge-server/` 导致自动启动失败
+- 修复 WinUI 启动后 Chat 页未自动连接（需进入设置页才触发）：Chat 页加载时 EnsureStarted 并自动连接
 - 修复会话历史回放包含 developer/环境/指令上下文：仅展示 user/assistant 的真实对话，并支持从 `## My request for Codex:` 提取真实用户消息
 - 修复新建会话缺少 `cwd` 导致 `codex exec resume` 报错：创建时强制写入 `cwd`，并在 resume 时自动补写缺失值（使用 workingDirectory）
 - 修复会话 `session_meta` 缺少 Codex 必填字段 `cli_version` 导致 resume 失败：创建时写入并在必要时自动补写
