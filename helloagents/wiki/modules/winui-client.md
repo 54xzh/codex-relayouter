@@ -19,6 +19,7 @@
 
 #### 场景: 聊天与流式输出
 以增量事件实时渲染回复，支持取消与重试。
+Chat 页支持图片输入：可选择本地图片并随消息发送；消息列表会展示图片缩略图，且在会话历史回放时可解码显示 session 中的 base64 图片（data URL）。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
 Chat 页工作区按钮的描述文本显示 `cwd` 的目录名（basename）；点击后菜单提供“在资源管理器中打开”、“重新选择（FolderPicker）”，并展示最近使用的 5 条 `cwd`（完整路径）以便快速切换。
@@ -62,3 +63,4 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601181348_trace_thinking](../../history/2026-01/202601181348_trace_thinking/) - WinUI：Chat 页展示“执行的命令/思考摘要”（可展开）
 - [202601181551_trace_timeline](../../history/2026-01/202601181551_trace_timeline/) - WinUI：Trace 时间线（思考/命令/回答按时间顺序）
 - [202601181735_app_server_approvals](../../history/2026-01/202601181735_app_server_approvals/) - WinUI：审批弹窗 + delta 流式渲染（assistant/命令/思考摘要）
+- [202601190157_chat_images](../../history/2026-01/202601190157_chat_images/) - WinUI：Chat 页图片选择/预览/发送 + 会话回放图片解码显示

@@ -289,7 +289,7 @@ public sealed class CodexSessionStore
                     break;
                 }
 
-                if (!TryParseMessageLine(line, out var role, out var text, out var kind))
+                if (!TryParseMessageLine(line, out var role, out var text, out var kind, out var images))
                 {
                     if (TryParseAgentReasoningLine(line, out var reasoningText))
                     {
@@ -351,7 +351,8 @@ public sealed class CodexSessionStore
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(role) || string.IsNullOrWhiteSpace(text))
+                if (string.IsNullOrWhiteSpace(role)
+                    || (string.IsNullOrWhiteSpace(text) && (images is null || images.Count == 0)))
                 {
                     continue;
                 }
@@ -359,12 +360,12 @@ public sealed class CodexSessionStore
                 if (string.Equals(role, "user", StringComparison.OrdinalIgnoreCase))
                 {
                     var sanitized = SanitizeUserMessageText(text);
-                    if (string.IsNullOrWhiteSpace(sanitized))
+                    if (string.IsNullOrWhiteSpace(sanitized) && (images is null || images.Count == 0))
                     {
                         continue;
                     }
 
-                    text = sanitized;
+                    text = sanitized ?? string.Empty;
                 }
                 else if (!string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase))
                 {
@@ -380,6 +381,7 @@ public sealed class CodexSessionStore
                 {
                     Role = role,
                     Text = text,
+                    Images = images,
                     Kind = kind,
                     Trace = string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase) && traceBuffer.Count > 0
                         ? traceBuffer.ToArray()
@@ -974,7 +976,7 @@ public sealed class CodexSessionStore
                 return null;
             }
 
-            if (!TryParseMessageLine(line, out var role, out var text, out _))
+            if (!TryParseMessageLine(line, out var role, out var text, out _, out _))
             {
                 continue;
             }
@@ -1177,11 +1179,17 @@ public sealed class CodexSessionStore
         return false;
     }
 
-    private static bool TryParseMessageLine(string line, out string role, out string text, out string? kind)
+    private static bool TryParseMessageLine(
+        string line,
+        out string role,
+        out string text,
+        out string? kind,
+        out IReadOnlyList<string>? images)
     {
         role = string.Empty;
         text = string.Empty;
         kind = null;
+        images = null;
 
         if (string.IsNullOrWhiteSpace(line))
         {
@@ -1218,14 +1226,15 @@ public sealed class CodexSessionStore
                 return false;
             }
 
-            var extracted = ExtractMessageText(content);
-            if (string.IsNullOrWhiteSpace(extracted))
+            ExtractMessageTextAndImages(content, out var extractedText, out var extractedImages);
+            if (string.IsNullOrWhiteSpace(extractedText) && (extractedImages is null || extractedImages.Count == 0))
             {
                 return false;
             }
 
             role = parsedRole;
-            text = extracted;
+            text = extractedText;
+            images = extractedImages;
             kind = payloadType;
             return true;
         }
@@ -1235,29 +1244,42 @@ public sealed class CodexSessionStore
         }
     }
 
-    private static string ExtractMessageText(JsonElement content)
+    private static void ExtractMessageTextAndImages(
+        JsonElement content,
+        out string text,
+        out IReadOnlyList<string>? images)
     {
+        text = string.Empty;
+        images = null;
+
         if (content.ValueKind == JsonValueKind.String)
         {
-            return content.GetString() ?? string.Empty;
+            text = content.GetString() ?? string.Empty;
+            return;
         }
 
         if (content.ValueKind == JsonValueKind.Object)
         {
             if (TryGetString(content, "text", out var single))
             {
-                return single;
+                text = single;
             }
 
-            return string.Empty;
+            if (TryGetDataUrlFromImageObject(content, out var dataUrl))
+            {
+                images = new[] { dataUrl };
+            }
+
+            return;
         }
 
         if (content.ValueKind != JsonValueKind.Array)
         {
-            return string.Empty;
+            return;
         }
 
         var sb = new StringBuilder();
+        List<string>? imageList = null;
         foreach (var item in content.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object)
@@ -1266,6 +1288,20 @@ public sealed class CodexSessionStore
             }
 
             if (!TryGetString(item, "text", out var partText) || string.IsNullOrEmpty(partText))
+            {
+                if (!TryGetDataUrlFromImageObject(item, out var dataUrl))
+                {
+                    continue;
+                }
+
+                imageList ??= new List<string>(capacity: 1);
+                imageList.Add(dataUrl);
+                continue;
+            }
+
+            var normalized = partText.Trim();
+            if (string.Equals(normalized, "<image>", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "</image>", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -1278,7 +1314,49 @@ public sealed class CodexSessionStore
             sb.Append(partText);
         }
 
-        return sb.ToString();
+        text = sb.ToString();
+        images = imageList is null || imageList.Count == 0 ? null : imageList.ToArray();
+    }
+
+    private static bool TryGetDataUrlFromImageObject(JsonElement item, out string dataUrl)
+    {
+        dataUrl = string.Empty;
+
+        if (item.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        string? candidate = null;
+        if (item.TryGetProperty("image_url", out var imageUrlProp))
+        {
+            if (imageUrlProp.ValueKind == JsonValueKind.String)
+            {
+                candidate = imageUrlProp.GetString();
+            }
+            else if (imageUrlProp.ValueKind == JsonValueKind.Object && TryGetString(imageUrlProp, "url", out var url))
+            {
+                candidate = url;
+            }
+        }
+        else if (TryGetString(item, "url", out var directUrl))
+        {
+            candidate = directUrl;
+        }
+
+        candidate = candidate?.Trim();
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return false;
+        }
+
+        if (!candidate.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        dataUrl = candidate;
+        return true;
     }
 
     private sealed class CodexSessionMetaLine

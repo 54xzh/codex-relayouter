@@ -20,6 +20,7 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         RunId = runId;
         CreatedAt = DateTimeOffset.Now;
         Trace.CollectionChanged += TraceOnCollectionChanged;
+        Images.CollectionChanged += ImagesOnCollectionChanged;
     }
 
     public string Role { get; }
@@ -40,6 +41,12 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
     public string TraceHeader => $"执行过程（{TraceCount}）";
 
+    public ObservableCollection<ChatImageViewModel> Images { get; } = new();
+
+    public int ImageCount => Images.Count;
+
+    public bool HasImages => Images.Count > 0;
+
     public string Text
     {
         get => _text;
@@ -52,8 +59,11 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
             _text = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(HasText));
         }
     }
+
+    public bool HasText => !string.IsNullOrWhiteSpace(Text);
 
     public void AppendLine(string line)
     {
@@ -157,6 +167,12 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(TraceCount));
         OnPropertyChanged(nameof(HasTrace));
         OnPropertyChanged(nameof(TraceHeader));
+    }
+
+    private void ImagesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(ImageCount));
+        OnPropertyChanged(nameof(HasImages));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

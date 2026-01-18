@@ -5,6 +5,8 @@ public sealed class CodexRunRequest
 {
     public required string Prompt { get; init; }
 
+    public IReadOnlyList<string>? Images { get; init; }
+
     public string? SessionId { get; init; }
 
     public string? WorkingDirectory { get; init; }

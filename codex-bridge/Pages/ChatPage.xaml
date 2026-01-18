@@ -74,10 +74,40 @@
                             HorizontalAlignment="Right"
                             MaxWidth="600"
                             Margin="80,0,0,0">
-                            <TextBlock
-                                Text="{x:Bind Text, Mode=OneWay}"
-                                TextWrapping="Wrap"
-                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="8">
+                                <ScrollViewer
+                                    HorizontalScrollBarVisibility="Auto"
+                                    VerticalScrollBarVisibility="Disabled"
+                                    Visibility="{x:Bind HasImages, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ItemsControl ItemsSource="{x:Bind Images, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ChatImageViewModel">
+                                                <Border
+                                                    CornerRadius="8"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1">
+                                                    <Image
+                                                        Source="{x:Bind Bitmap, Mode=OneWay}"
+                                                        Width="180"
+                                                        Height="180"
+                                                        Stretch="UniformToFill" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <TextBlock
+                                    Text="{x:Bind Text, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    Visibility="{x:Bind HasText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            </StackPanel>
                         </Border>
 
                         <!-- 助手消息：左对齐，保持原有样式 -->
@@ -142,7 +172,37 @@
                                 </Expander>
 
                                 <!-- 消息正文 -->
-                                <TextBlock Text="{x:Bind Text, Mode=OneWay}" TextWrapping="Wrap" />
+                                <ScrollViewer
+                                    HorizontalScrollBarVisibility="Auto"
+                                    VerticalScrollBarVisibility="Disabled"
+                                    Visibility="{x:Bind HasImages, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ItemsControl ItemsSource="{x:Bind Images, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ChatImageViewModel">
+                                                <Border
+                                                    CornerRadius="8"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1">
+                                                    <Image
+                                                        Source="{x:Bind Bitmap, Mode=OneWay}"
+                                                        Width="220"
+                                                        Height="220"
+                                                        Stretch="UniformToFill" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <TextBlock
+                                    Text="{x:Bind Text, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    Visibility="{x:Bind HasText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -158,30 +218,84 @@
             BorderThickness="1"
             CornerRadius="8"
             Padding="4">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
-                <TextBox
-                    x:Name="PromptTextBox"
-                    AcceptsReturn="True"
-                    PlaceholderText="输入消息（Shift+Enter 换行，Enter 发送）"
-                    TextWrapping="Wrap"
-                    MaxHeight="150"
-                    BorderThickness="0"
-                    Background="Transparent"
-                    KeyDown="PromptTextBox_KeyDown" />
+            <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                <!-- 待发送图片预览 -->
+                <ScrollViewer
+                    x:Name="PendingImagesScrollViewer"
+                    Grid.Row="0"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled"
+                    Visibility="Collapsed">
+                    <ItemsControl ItemsSource="{x:Bind PendingImages, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChatImageViewModel">
+                                <Grid>
+                                    <Border
+                                        CornerRadius="8"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1">
+                                        <Image
+                                            Source="{x:Bind Bitmap, Mode=OneWay}"
+                                            Width="64"
+                                            Height="64"
+                                            Stretch="UniformToFill" />
+                                    </Border>
 
-                <Button
-                    Grid.Column="1"
-                    Click="SendButton_Click"
-                    Style="{StaticResource AccentButtonStyle}"
-                    ToolTipService.ToolTip="发送消息">
-                    <SymbolIcon Symbol="Send" />
-                </Button>
-                <Button
-                    Grid.Column="2"
-                    Click="CancelButton_Click"
-                    ToolTipService.ToolTip="取消当前任务">
-                    <SymbolIcon Symbol="Cancel" />
-                </Button>
+                                    <Button
+                                        Width="24"
+                                        Height="24"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Margin="0,-6,-6,0"
+                                        Click="RemovePendingImage_Click"
+                                        Tag="{x:Bind DataUrl}"
+                                        ToolTipService.ToolTip="移除">
+                                        <SymbolIcon Symbol="Cancel" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 输入与操作 -->
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
+                    <TextBox
+                        x:Name="PromptTextBox"
+                        AcceptsReturn="True"
+                        PlaceholderText="输入消息（Shift+Enter 换行，Enter 发送）"
+                        TextWrapping="Wrap"
+                        MaxHeight="150"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        KeyDown="PromptTextBox_KeyDown" />
+
+                    <Button
+                        Grid.Column="1"
+                        Click="AddImageButton_Click"
+                        ToolTipService.ToolTip="添加图片">
+                        <SymbolIcon Symbol="Pictures" />
+                    </Button>
+
+                    <Button
+                        Grid.Column="2"
+                        Click="SendButton_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        ToolTipService.ToolTip="发送消息">
+                        <SymbolIcon Symbol="Send" />
+                    </Button>
+                    <Button
+                        Grid.Column="3"
+                        Click="CancelButton_Click"
+                        ToolTipService.ToolTip="取消当前任务">
+                        <SymbolIcon Symbol="Cancel" />
+                    </Button>
+                </Grid>
             </Grid>
         </Border>
 

@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** 会话与运行管理、工作区管理、Codex 进程驱动（app-server JSON-RPC + JSONL 回放解析）、事件广播、鉴权与远程开关
 - **状态:** 开发中
-- **最后更新:** 2026-01-18
+- **最后更新:** 2026-01-19
 
 ## 规范
 
@@ -39,13 +39,13 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 **描述:** 创建会话（写入最小 `session_meta` JSONL 文件；`cwd` 必填且需存在，并写入 Codex 需要的 `cli_version`）
 
 ### [GET] /api/v1/sessions/{sessionId}/messages
-**描述:** 获取会话历史消息（解析 JSONL 的 message 记录，用于前端回放；过滤 developer/system/环境上下文，仅保留 user/assistant 的真实对话；并可附带 trace 回放）
+**描述:** 获取会话历史消息（解析 JSONL 的 message 记录，用于前端回放；过滤 developer/system/环境上下文，仅保留 user/assistant 的真实对话；并可附带 trace 回放；当 message.content 中包含 `input_image/output_image` 时会返回 `images`（data URL）供前端解码显示）
 
 ### [WS] /ws
 **描述:** 命令与事件通道（聊天发送/流式输出/多端同步）
 
 **已实现（MVP 骨架）:**
-- command: `chat.send`（支持 `prompt`/`sessionId(resume)`/`workingDirectory`/`model`/`sandbox`/`approvalPolicy`/`effort`/`skipGitRepoCheck`）
+- command: `chat.send`（支持 `prompt`/`images`/`sessionId(resume)`/`workingDirectory`/`model`/`sandbox`/`approvalPolicy`/`effort`/`skipGitRepoCheck`）
 - command: `run.cancel`
 - command: `approval.respond`
 - event: `bridge.connected` / `session.created` / `chat.message` / `run.started` / `run.command` / `run.reasoning` / `run.completed` / `run.canceled` / `run.failed` / `run.rejected`
@@ -54,7 +54,7 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 **说明:**
 - 运行链路改为 `codex app-server`（JSON-RPC over stdio）：支持审批 request/response 与 delta 流式事件
 - `commandExecution` / `reasoning` / `agentMessage` 会被映射为 `run.command` / `run.reasoning` / `chat.message`，并额外广播 delta 事件用于前端实时渲染
-- 会话回放时，服务端会从 `~/.codex/sessions` 中解析 `agent_reasoning` 与工具调用（如 `shell_command`），并以 `trace` 字段附加到对应的 assistant 消息
+- 会话回放时，服务端会从 `~/.codex/sessions` 中解析 `agent_reasoning` 与工具调用（如 `shell_command`），并以 `trace` 字段附加到对应的 assistant 消息；同时解析 `input_image/output_image` 并返回 `images`（data URL）
 
 ## 配置
 - `Bridge:Security:RemoteEnabled`：是否开启远程访问（默认 false，仅允许回环）
@@ -83,6 +83,7 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 - [202601181348_trace_thinking](../../history/2026-01/202601181348_trace_thinking/) - 运行追踪：映射并广播 `run.command` / `run.reasoning`
 - [202601181551_trace_timeline](../../history/2026-01/202601181551_trace_timeline/) - Trace 时间线：会话回放解析 `agent_reasoning` 与工具调用并按时间序展示
 - [202601181735_app_server_approvals](../../history/2026-01/202601181735_app_server_approvals/) - 运行链路：切换 `codex app-server` 以支持审批请求与 delta 流式事件
+- [202601190157_chat_images](../../history/2026-01/202601190157_chat_images/) - 图片输入与回放：`chat.send(images)` + `/sessions/{id}/messages.images`
 
 ## 依赖
 - Codex CLI

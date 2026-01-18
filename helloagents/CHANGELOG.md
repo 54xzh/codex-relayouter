@@ -18,6 +18,7 @@
 - 新增 WinUI：`model` / `model_reasoning_effort` 自动读取 `~/.codex/config.toml`，并在 Chat 页/设置页修改后写回
 - 新增 WinUI：Chat 页工作区按钮显示目录名（basename），菜单支持资源管理器打开/重新选择，并展示最近 5 条 cwd（完整路径）以便快速切换
 - 新增 WinUI：选择已有会话后自动使用该会话的 `cwd` 作为 workingDirectory
+- 新增图片能力：Chat 页支持选择并发送图片（`chat.send(images)`），Bridge Server 转发到 app-server 并在会话回放接口返回 `images`（data URL），WinUI 可解码显示 session 中的 base64 图片
 
 ### 修复
 - 修复 MSIX 调试部署/打包场景下未包含 `bridge-server/` 导致自动启动失败

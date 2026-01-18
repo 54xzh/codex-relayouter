@@ -52,6 +52,7 @@ Bridge Server 对外提供两类接口：
 - 数据来源：`%USERPROFILE%\\.codex\\sessions`（JSONL）
 - 解析规则：筛选 `type=response_item` 且 `payload.type=message` 的消息
 - 过滤规则：仅返回 `role=user|assistant`；user 文本会过滤环境/指令上下文，并在检测到 `## My request for Codex:` 时仅保留该段内容
+- 图片回放：当 `payload.content` 内包含 `input_image/output_image`（data URL）时，返回 `images`（字符串数组），供前端解码渲染
 - 回放增强：assistant 消息可包含可选字段 `trace`（按时间顺序），用于展示该次回复中的思考/命令等过程信息
 - 支持 `?limit=`（默认 200，最大 2000，返回末尾 N 条）
 
@@ -63,6 +64,7 @@ Bridge Server 对外提供两类接口：
 {
   "role": "assistant",
   "text": "...",
+  "images": ["data:image/png;base64,..."],
   "trace": [
     { "kind": "reasoning", "title": "Evaluating ...", "text": "..." },
     { "kind": "command", "tool": "shell_command", "command": "rg -n ...", "status": "completed", "exitCode": 0, "output": "..." }
@@ -97,13 +99,14 @@ Bridge Server 对外提供两类接口：
 - 当 `Bridge:Security:RemoteEnabled=true` 时，必须带 `Authorization: Bearer <token>`
 
 **已实现消息（MVP 骨架）:**
-- command `chat.send`：`{ "prompt": "...", "sessionId": "uuid(optional)", "workingDirectory": "C:\\path(optional)", "model": "o3(optional)", "sandbox": "workspace-write(optional)", "approvalPolicy": "on-request(optional)", "effort": "high(optional)", "skipGitRepoCheck": false }`
+- command `chat.send`：`{ "prompt": "string(optional)", "images": ["data:image/...;base64,..."] (optional), "sessionId": "uuid(optional)", "workingDirectory": "C:\\path(optional)", "model": "o3(optional)", "sandbox": "workspace-write(optional)", "approvalPolicy": "on-request(optional)", "effort": "high(optional)", "skipGitRepoCheck": false }`
+  - 说明：`prompt` 允许为空，但 `prompt/images` 至少其一需要存在
 - command `run.cancel`：`{}`
 - command `approval.respond`：`{ "runId": "...", "requestId": "...", "decision": "accept|acceptForSession|decline|cancel" }`
 - 说明：当前运行链路基于 `codex app-server`（JSON-RPC），支持审批请求与流式 delta；`skipGitRepoCheck` 保留用于兼容旧链路/未来回退
 - event `bridge.connected`：`{ "clientId": "..." }`
 - event `session.created`：`{ "runId": "...", "sessionId": "..." }`
-- event `chat.message`：`{ "runId": "...", "role": "user", "text": "...", "clientId": "..." }`
+- event `chat.message`：`{ "runId": "...", "role": "user|assistant", "text": "string", "images": ["data:image/...;base64,..."] (optional), "clientId": "..." }`
 - event `chat.message.delta`：`{ "runId": "...", "itemId": "item_3", "delta": "..." }`
 - event `approval.requested`：`{ "runId": "...", "requestId": "...", "kind": "commandExecution|fileChange", "threadId": "...", "turnId": "...", "itemId": "...", "reason": "..." }`
 - event `run.started`：`{ "runId": "...", "clientId": "..." }`

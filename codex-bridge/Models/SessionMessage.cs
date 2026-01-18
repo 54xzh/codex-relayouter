@@ -7,6 +7,8 @@ public sealed class SessionMessage
 
     public required string Text { get; init; }
 
+    public string[]? Images { get; init; }
+
     public string? Kind { get; init; }
 
     public SessionTraceEntry[]? Trace { get; init; }

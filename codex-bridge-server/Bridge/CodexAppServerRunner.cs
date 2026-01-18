@@ -147,12 +147,14 @@ public sealed class CodexAppServerRunner
 
         async Task<(string turnId, JsonElement turn)> StartTurnAsync(string threadId, CancellationToken ct)
         {
+            var input = BuildTurnInput(request.Prompt, request.Images);
+
             var turnStartResult = await SendRequestAsync(
                 "turn/start",
                 new
                 {
                     threadId,
-                    input = new[] { new { type = "text", text = request.Prompt } },
+                    input,
                     cwd = request.WorkingDirectory,
                     model = request.Model,
                     effort = string.IsNullOrWhiteSpace(request.Effort) ? null : request.Effort,
@@ -709,6 +711,37 @@ public sealed class CodexAppServerRunner
             "danger-full-access" => new { type = "dangerFullAccess" },
             _ => null,
         };
+    }
+
+    private static object[] BuildTurnInput(string prompt, IReadOnlyList<string>? imageDataUrls)
+    {
+        var items = new List<object>(capacity: 1 + (imageDataUrls?.Count ?? 0));
+
+        if (!string.IsNullOrWhiteSpace(prompt))
+        {
+            items.Add(new { type = "text", text = prompt });
+        }
+
+        if (imageDataUrls is not null)
+        {
+            foreach (var entry in imageDataUrls)
+            {
+                var url = entry?.Trim();
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                items.Add(new { type = "image", url });
+            }
+        }
+
+        if (items.Count == 0)
+        {
+            items.Add(new { type = "text", text = string.Empty });
+        }
+
+        return items.ToArray();
     }
 
     private static bool TryParseJson(string line, out JsonElement root)

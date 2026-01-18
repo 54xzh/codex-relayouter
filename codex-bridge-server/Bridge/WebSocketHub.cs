@@ -9,6 +9,8 @@ namespace codex_bridge_server.Bridge;
 
 public sealed class WebSocketHub
 {
+    private const int MaxInputImages = 4;
+
     private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
     private readonly BridgeRequestAuthorizer _authorizer;
     private readonly CodexAppServerRunner _appServerRunner;
@@ -145,9 +147,14 @@ public sealed class WebSocketHub
             return;
         }
 
-        if (!TryGetString(envelope.Data, "prompt", out var prompt) || string.IsNullOrWhiteSpace(prompt))
+        TryGetString(envelope.Data, "prompt", out var prompt);
+        prompt = prompt?.Trim() ?? string.Empty;
+
+        var images = ParseImageDataUrls(envelope.Data);
+
+        if (string.IsNullOrWhiteSpace(prompt) && (images is null || images.Length == 0))
         {
-            await BroadcastAsync(CreateEvent("run.rejected", new { reason = "缺少 prompt" }), cancellationToken);
+            await BroadcastAsync(CreateEvent("run.rejected", new { reason = "缺少 prompt/images" }), cancellationToken);
             return;
         }
 
@@ -163,7 +170,7 @@ public sealed class WebSocketHub
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _currentRunCts = cts;
 
-        await BroadcastAsync(CreateEvent("chat.message", new { runId, role = "user", text = prompt, clientId }), cancellationToken);
+        await BroadcastAsync(CreateEvent("chat.message", new { runId, role = "user", text = prompt, images, clientId }), cancellationToken);
         await BroadcastAsync(CreateEvent("run.started", new { runId, clientId }), cancellationToken);
 
         _ = Task.Run(async () =>
@@ -180,6 +187,7 @@ public sealed class WebSocketHub
                     new CodexRunRequest
                     {
                         Prompt = prompt,
+                        Images = images,
                         SessionId = sessionId,
                         WorkingDirectory = workingDirectory,
                         Model = model,
@@ -554,6 +562,56 @@ public sealed class WebSocketHub
 
         value = property.GetString();
         return true;
+    }
+
+    private static string[]? ParseImageDataUrls(JsonElement data)
+    {
+        if (data.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!data.TryGetProperty("images", out var imagesProp) || imagesProp.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var list = new List<string>(capacity: Math.Min(MaxInputImages, 4));
+        foreach (var item in imagesProp.EnumerateArray())
+        {
+            string? url = null;
+
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                url = item.GetString();
+            }
+            else if (item.ValueKind == JsonValueKind.Object)
+            {
+                if (TryGetString(item, "dataUrl", out var dataUrl))
+                {
+                    url = dataUrl;
+                }
+            }
+
+            url = url?.Trim();
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                continue;
+            }
+
+            if (!url.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            list.Add(url);
+            if (list.Count >= MaxInputImages)
+            {
+                break;
+            }
+        }
+
+        return list.Count == 0 ? null : list.ToArray();
     }
 
     private static bool TryGetBoolean(JsonElement data, string propertyName, out bool value)

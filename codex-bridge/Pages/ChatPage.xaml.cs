@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -26,6 +27,8 @@ namespace codex_bridge.Pages;
 public sealed partial class ChatPage : Page
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private const int MaxPendingImages = 4;
+    private const int MaxImageBytes = 10 * 1024 * 1024;
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient = new();
@@ -34,6 +37,8 @@ public sealed partial class ChatPage : Page
     private int _autoConnectAttempted;
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = new();
+
+    public ObservableCollection<ChatImageViewModel> PendingImages { get; } = new();
 
     public ChatPage()
     {
@@ -44,6 +49,8 @@ public sealed partial class ChatPage : Page
         App.ConnectionService.ConnectionStateChanged += ConnectionService_StateChanged;
         App.ConnectionService.ConnectionClosed += ConnectionService_ConnectionClosed;
 
+        PendingImages.CollectionChanged += PendingImages_CollectionChanged;
+
         Loaded += ChatPage_Loaded;
     }
 
@@ -52,6 +59,7 @@ public sealed partial class ChatPage : Page
         UpdateConnectionUI();
         ApplySessionStateToUi();
         ApplyConnectionSettingsToUi();
+        UpdatePendingImagesUi();
         await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
     }
@@ -191,6 +199,79 @@ public sealed partial class ChatPage : Page
         await SendPromptAsync();
     }
 
+    private async void AddImageButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (PendingImages.Count >= MaxPendingImages)
+            {
+                SetSessionStatus($"最多添加 {MaxPendingImages} 张图片");
+                return;
+            }
+
+            var picker = new FileOpenPicker();
+            picker.FileTypeFilter.Add(".png");
+            picker.FileTypeFilter.Add(".jpg");
+            picker.FileTypeFilter.Add(".jpeg");
+            picker.FileTypeFilter.Add(".gif");
+            picker.FileTypeFilter.Add(".bmp");
+            picker.FileTypeFilter.Add(".webp");
+
+            var window = App.MainWindow;
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            var files = await picker.PickMultipleFilesAsync();
+            if (files is null || files.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var file in files)
+            {
+                if (PendingImages.Count >= MaxPendingImages)
+                {
+                    break;
+                }
+
+                var dataUrl = await TryCreateImageDataUrlAsync(file.Path);
+                if (string.IsNullOrWhiteSpace(dataUrl))
+                {
+                    continue;
+                }
+
+                var vm = new ChatImageViewModel(dataUrl);
+                PendingImages.Add(vm);
+                _ = vm.LoadAsync();
+            }
+
+            UpdatePendingImagesUi();
+        }
+        catch (Exception ex)
+        {
+            SetSessionStatus($"选择图片失败: {ex.Message}");
+        }
+    }
+
+    private void RemovePendingImage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string dataUrl)
+        {
+            return;
+        }
+
+        for (var i = PendingImages.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(PendingImages[i].DataUrl, dataUrl, StringComparison.Ordinal))
+            {
+                PendingImages.RemoveAt(i);
+                break;
+            }
+        }
+
+        UpdatePendingImagesUi();
+    }
+
     private async void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -205,8 +286,24 @@ public sealed partial class ChatPage : Page
 
     private async Task SendPromptAsync()
     {
-        var prompt = PromptTextBox.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(prompt))
+        var prompt = PromptTextBox.Text?.Trim() ?? string.Empty;
+
+        string[]? images = null;
+        if (PendingImages.Count > 0)
+        {
+            var list = new List<string>(PendingImages.Count);
+            foreach (var img in PendingImages)
+            {
+                if (!string.IsNullOrWhiteSpace(img.DataUrl))
+                {
+                    list.Add(img.DataUrl);
+                }
+            }
+
+            images = list.Count == 0 ? null : list.ToArray();
+        }
+
+        if (string.IsNullOrWhiteSpace(prompt) && images is null)
         {
             return;
         }
@@ -222,6 +319,7 @@ public sealed partial class ChatPage : Page
                 new
                 {
                     prompt,
+                    images,
                     sessionId = App.SessionState.CurrentSessionId,
                     workingDirectory = service.WorkingDirectory,
                     model = service.Model,
@@ -231,6 +329,9 @@ public sealed partial class ChatPage : Page
                     skipGitRepoCheck = service.SkipGitRepoCheck,
                 },
                 CancellationToken.None);
+
+            PendingImages.Clear();
+            UpdatePendingImagesUi();
         }
         catch (Exception ex)
         {
@@ -289,12 +390,14 @@ public sealed partial class ChatPage : Page
             var traceIndex = 0;
             foreach (var item in items)
             {
-                if (string.IsNullOrWhiteSpace(item.Role) || string.IsNullOrWhiteSpace(item.Text))
+                if (string.IsNullOrWhiteSpace(item.Role)
+                    || (string.IsNullOrWhiteSpace(item.Text) && (item.Images is null || item.Images.Length == 0)))
                 {
                     continue;
                 }
 
-                var message = new ChatMessageViewModel(item.Role, item.Text);
+                var message = new ChatMessageViewModel(item.Role, item.Text ?? string.Empty);
+                AttachImages(message, item.Images);
 
                 if (item.Trace is not null && item.Trace.Length > 0)
                 {
@@ -441,16 +544,20 @@ public sealed partial class ChatPage : Page
         }
 
         var runId = GetOptionalString(data, "runId");
+        var images = GetOptionalStringArray(data, "images");
 
         if (!string.IsNullOrWhiteSpace(runId)
             && string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase)
             && _runToMessage.TryGetValue(runId, out var runMessage))
         {
             runMessage.Text = text;
+            AttachImages(runMessage, images);
             return;
         }
 
-        Messages.Add(new ChatMessageViewModel(role, text, runId));
+        var message = new ChatMessageViewModel(role, text, runId);
+        Messages.Add(message);
+        AttachImages(message, images);
     }
 
     private void HandleChatMessageDelta(JsonElement data)
@@ -725,6 +832,119 @@ public sealed partial class ChatPage : Page
     private void SetSessionStatus(string text)
     {
         SessionStatusText.Text = text;
+    }
+
+    private void PendingImages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        UpdatePendingImagesUi();
+    }
+
+    private void UpdatePendingImagesUi()
+    {
+        if (PendingImagesScrollViewer is null)
+        {
+            return;
+        }
+
+        PendingImagesScrollViewer.Visibility = PendingImages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void AttachImages(ChatMessageViewModel message, IReadOnlyList<string>? imageDataUrls)
+    {
+        if (imageDataUrls is null || imageDataUrls.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var url in imageDataUrls)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                continue;
+            }
+
+            var vm = new ChatImageViewModel(url);
+            message.Images.Add(vm);
+            _ = vm.LoadAsync();
+        }
+    }
+
+    private static IReadOnlyList<string>? GetOptionalStringArray(JsonElement data, string propertyName)
+    {
+        if (data.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!data.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var list = new List<string>(capacity: 4);
+        foreach (var item in property.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var value = item.GetString();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                list.Add(value);
+            }
+        }
+
+        return list.Count == 0 ? null : list.ToArray();
+    }
+
+    private static Task<string?> TryCreateImageDataUrlAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var mimeType = ext switch
+        {
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".bmp" => "image/bmp",
+            ".webp" => "image/webp",
+            _ => null,
+        };
+
+        if (mimeType is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        return ReadAndEncodeAsync(path, mimeType);
+    }
+
+    private static async Task<string?> ReadAndEncodeAsync(string path, string mimeType)
+    {
+        byte[] bytes;
+        try
+        {
+            bytes = await File.ReadAllBytesAsync(path);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (bytes.Length == 0 || bytes.Length > MaxImageBytes)
+        {
+            return null;
+        }
+
+        var base64 = Convert.ToBase64String(bytes);
+        return $"data:{mimeType};base64,{base64}";
     }
 
     private static string? GetOptionalString(JsonElement data, string propertyName) =>
