@@ -6,12 +6,19 @@
     xmlns:conv="using:codex_bridge.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.UI.Controls"
     xmlns:vm="using:codex_bridge.ViewModels"
     mc:Ignorable="d">
 
     <Page.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <FontFamily x:Key="ChineseUIFont">Microsoft YaHei UI,Microsoft YaHei,Segoe UI</FontFamily>
+        <SolidColorBrush x:Key="MarkdownCodeBlockBackgroundBrush" Color="#FFF6F8FA" />
+        <SolidColorBrush x:Key="MarkdownCodeBlockBorderBrush" Color="#FFB6C2CF" />
+        <SolidColorBrush x:Key="MarkdownCodeBlockForegroundBrush" Color="#FF000000" />
+        <SolidColorBrush x:Key="MarkdownInlineCodeBackgroundBrush" Color="#FFEEF2F6" />
+        <SolidColorBrush x:Key="MarkdownInlineCodeBorderBrush" Color="#FFB6C2CF" />
+        <SolidColorBrush x:Key="MarkdownInlineCodeForegroundBrush" Color="#FF000000" />
         
         <!-- 无边框 TextBox 样式 -->
         <Style x:Key="BorderlessTextBoxStyle" TargetType="TextBox">
@@ -236,10 +243,33 @@
                                 </ScrollViewer>
 
                                 <TextBlock
+                                    FontFamily="{StaticResource ChineseUIFont}"
                                     Text="{x:Bind Text, Mode=OneWay}"
                                     TextWrapping="Wrap"
                                     Margin="16,0,0,0"
-                                    Visibility="{x:Bind HasText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    Visibility="{x:Bind ShowPlainText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                <toolkit:MarkdownTextBlock
+                                    FontFamily="{StaticResource ChineseUIFont}"
+                                    Text="{x:Bind MarkdownText, Mode=OneWay}"
+                                    TextWrapping="Wrap"
+                                    Margin="16,0,0,0"
+                                    Background="Transparent"
+                                    CodeBackground="{StaticResource MarkdownCodeBlockBackgroundBrush}"
+                                    CodeBorderThickness="0"
+                                    CodeForeground="{StaticResource MarkdownCodeBlockForegroundBrush}"
+                                    CodeFontFamily="Consolas"
+                                    CodePadding="12,10,12,10"
+                                    InlineCodeBackground="{StaticResource MarkdownInlineCodeBackgroundBrush}"
+                                    InlineCodeBorderThickness="0"
+                                    InlineCodeFontFamily="Consolas"
+                                    InlineCodeForeground="{StaticResource MarkdownInlineCodeForegroundBrush}"
+                                    InlineCodeMargin="2,0,2,0"
+                                    InlineCodePadding="6,2,6,2"
+                                    LinkClicked="MarkdownTextBlock_LinkClicked"
+                                    CodeBlockResolving="MarkdownTextBlock_CodeBlockResolving"
+                                    UseSyntaxHighlighting="True"
+                                    Visibility="{x:Bind ShowMarkdown, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                             </StackPanel>
                         </Border>
                     </Grid>

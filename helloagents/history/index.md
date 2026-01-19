@@ -49,6 +49,9 @@
 | 202601192202 | context_usage_status | 功能 | ✅已完成（上下文用量精简展示） | [202601192202_context_usage_status](2026-01/202601192202_context_usage_status/) |
 | 202601192243 | context_usage_flyout | 功能 | ✅已完成（上下文用量 Flyout/限额进度条） | [202601192243_context_usage_flyout](2026-01/202601192243_context_usage_flyout/) |
 | 202601192345 | remove_window_min_size | 修复 | ✅已完成（移除窗口最小尺寸限制） | [202601192345_remove_window_min_size](2026-01/202601192345_remove_window_min_size/) |
+| 202601200021 | fix_incomplete_reply_history | 修复 | ✅已完成（无正文回复历史不丢失） | [202601200021_fix_incomplete_reply_history](2026-01/202601200021_fix_incomplete_reply_history/) |
+| 202601200039 | chat_markdown_rendering | 功能 | ✅已完成（Chat Markdown 渲染） | [202601200039_chat_markdown_rendering](2026-01/202601200039_chat_markdown_rendering/) |
+| 202601200110 | markdown_codeblock_style | 功能 | ✅已完成（Markdown 代码块样式优化） | [202601200110_markdown_codeblock_style](2026-01/202601200110_markdown_codeblock_style/) |
 
 ---
 
@@ -97,3 +100,6 @@
 - [202601192202_context_usage_status](2026-01/202601192202_context_usage_status/) - 功能：上下文用量精简展示（按钮显示百分比；弹窗展示连接状态/5h/周/上下文用量）
 - [202601192243_context_usage_flyout](2026-01/202601192243_context_usage_flyout/) - 功能：上下文用量菜单 Flyout（限额进度条/重置时间）
 - [202601192345_remove_window_min_size](2026-01/202601192345_remove_window_min_size/) - WinUI：移除主窗口最小尺寸限制（允许缩小）
+- [202601200021_fix_incomplete_reply_history](2026-01/202601200021_fix_incomplete_reply_history/) - 修复：无正文/中断回复的会话回放不再丢失（trace-only 消息保留）
+- [202601200039_chat_markdown_rendering](2026-01/202601200039_chat_markdown_rendering/) - WinUI：Chat 回复支持 Markdown 渲染
+- [202601200110_markdown_codeblock_style](2026-01/202601200110_markdown_codeblock_style/) - WinUI：Markdown 代码块浅色背景/黑字/圆角样式

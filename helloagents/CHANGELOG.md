@@ -20,6 +20,7 @@
 - 新增 WinUI：选择已有会话后自动使用该会话的 `cwd` 作为 workingDirectory
 - 新增图片能力：Chat 页支持选择并发送图片（`chat.send(images)`），Bridge Server 转发到 app-server 并在会话回放接口返回 `images`（data URL），WinUI 可解码显示 session 中的 base64 图片
 - 新增聊天输入增强：输入框支持粘贴图片；Enter 发送、Shift+Enter 换行
+- 新增 WinUI：Chat 回复支持 Markdown 渲染（代码块/列表/链接）
 - 新增上下文用量展示：Chat 页右下角按钮显示上下文用量百分比（无数据为 `-%`），点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额进度条；重置时间 `MM-dd HH:mm`；缺失项显示“不可用”）
 - 新增仓库入口文档 `README.md`：项目简介、快速开始、配置与安全、文档索引（指向 `helloagents/wiki`）
 
@@ -32,6 +33,7 @@
 - 优化 WinUI Chat 页 Trace 命令条目：视觉与思考摘要一致以避免双层容器；命令多行时最多显示 3 行并截断
 - 对齐 WinUI Chat 页 Trace 字体与间距：命令执行与思考摘要标题/内容的字体与上下边距一致
 - 优化上下文用量菜单排版：Flyout 加宽并调整行距/字间距，限额改为进度条可视化
+- 优化 WinUI Markdown 代码块样式：浅色背景/黑色字体/圆角，提高对比度
 
 ### 修复
 - 修复 MSIX 调试部署/打包场景下未包含 `bridge-server/` 导致自动启动失败
@@ -51,3 +53,4 @@
 - 修复 Chat 页“执行的命令/思考摘要”区块不显示：为 `x:Bind` 增加 `Mode=OneWay` 以支持运行时更新，并在运行开始时提示“思考中…”
 - 修复 workspace-write 模式无法请求权限：修正 app-server(JSON-RPC) 消息分类逻辑，避免将带 `method` 的 `requestApproval` server request 误判为 response 丢弃，从而确保可正常转发 `approval.requested` 并回传 `approval.respond` 的用户决定
 - 修复图片发送失败提示不明确/部分格式不兼容：WinUI 将剪贴板/BMP 图片转为 PNG（避免 `image/bmp` 导致失败），并在 `turn.status=failed` 时透出 `turn.error.message`
+- 修复回复未完整输出正文时重启后会话回放丢失记录：服务端兼容 `event_msg.agent_message` 并在末尾 trace 兜底刷出占位 assistant 消息；WinUI 历史加载不再过滤 trace-only 消息

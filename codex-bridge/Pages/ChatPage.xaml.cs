@@ -1,4 +1,5 @@
 // ChatPage：聊天页面，使用全局 ConnectionService。
+using CommunityToolkit.WinUI.UI.Controls;
 using codex_bridge.Bridge;
 using codex_bridge.Models;
 using codex_bridge.ViewModels;
@@ -7,6 +8,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System;
@@ -209,6 +211,106 @@ public sealed partial class ChatPage : Page
                 }
             }
         }
+    }
+
+    private async void MarkdownTextBlock_LinkClicked(object sender, LinkClickedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Link) || !Uri.TryCreate(e.Link, UriKind.Absolute, out var uri))
+        {
+            return;
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+        }
+        catch
+        {
+            // Ignore failures
+        }
+    }
+
+    private void MarkdownTextBlock_CodeBlockResolving(object sender, CodeBlockResolvingEventArgs e)
+    {
+        if (sender is not MarkdownTextBlock markdown)
+        {
+            return;
+        }
+
+        var inlineCollection = e.InlineCollection;
+        if (inlineCollection is null)
+        {
+            return;
+        }
+
+        var codeText = (e.Text ?? string.Empty).TrimEnd('\n', '\r');
+
+        var foreground = markdown.CodeForeground ?? new SolidColorBrush(Colors.Black);
+        var background = markdown.CodeBackground ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 246, 248, 250));
+        var borderBrush = markdown.CodeBorderBrush ?? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 182, 194, 207));
+        var borderThickness = markdown.CodeBorderThickness;
+        var padding = markdown.CodePadding;
+
+        if (borderThickness == default)
+        {
+            borderThickness = new Thickness(1);
+        }
+
+        if (padding == default)
+        {
+            padding = new Thickness(12, 10, 12, 10);
+        }
+
+        var codeFontFamily = markdown.CodeFontFamily ?? new FontFamily("Consolas");
+        var textBox = new TextBox
+        {
+            Text = codeText,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = markdown.WrapCodeBlock ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            FontFamily = codeFontFamily,
+            FontSize = markdown.FontSize,
+            Foreground = foreground,
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0),
+            IsSpellCheckEnabled = false,
+            IsTextPredictionEnabled = false,
+            IsTabStop = false,
+        };
+
+        UIElement content = textBox;
+        if (!markdown.WrapCodeBlock)
+        {
+            content = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = textBox,
+            };
+        }
+
+        var container = new Border
+        {
+            Background = background,
+            BorderThickness = new Thickness(0),
+            Padding = padding,
+            CornerRadius = new CornerRadius(10),
+            Margin = new Thickness(0, 8, 0, 8),
+            Child = content,
+        };
+
+        inlineCollection.Add(new LineBreak());
+        inlineCollection.Add(new InlineUIContainer { Child = container });
+        inlineCollection.Add(new LineBreak());
+
+        e.Handled = true;
     }
 
     private void StatusButton_Click(object sender, RoutedEventArgs e)
@@ -727,7 +829,9 @@ public sealed partial class ChatPage : Page
             foreach (var item in items)
             {
                 if (string.IsNullOrWhiteSpace(item.Role)
-                    || (string.IsNullOrWhiteSpace(item.Text) && (item.Images is null || item.Images.Length == 0)))
+                    || (string.IsNullOrWhiteSpace(item.Text)
+                        && (item.Images is null || item.Images.Length == 0)
+                        && (item.Trace is null || item.Trace.Length == 0)))
                 {
                     continue;
                 }
@@ -1030,6 +1134,7 @@ public sealed partial class ChatPage : Page
             && _runToMessage.TryGetValue(runId, out var runMessage))
         {
             runMessage.Text = text;
+            runMessage.RenderMarkdown = true;
             AttachImages(runMessage, images);
             runMessage.IsTraceExpanded = false;
             return;
@@ -1062,7 +1167,7 @@ public sealed partial class ChatPage : Page
             return;
         }
 
-        var message = new ChatMessageViewModel("assistant", "思考中…", runId);
+        var message = new ChatMessageViewModel("assistant", "思考中…", runId, renderMarkdown: false);
         message.IsTraceExpanded = true;
         _runToMessage[runId] = message;
         Messages.Add(message);
@@ -1231,7 +1336,7 @@ public sealed partial class ChatPage : Page
             return message;
         }
 
-        message = new ChatMessageViewModel("assistant", "思考中…", runId);
+        message = new ChatMessageViewModel("assistant", "思考中…", runId, renderMarkdown: false);
         message.IsTraceExpanded = true;
         _runToMessage[runId] = message;
         Messages.Add(message);
@@ -1261,6 +1366,7 @@ public sealed partial class ChatPage : Page
         if (_runToMessage.TryGetValue(runId, out var message))
         {
             message.IsTraceExpanded = false;
+            message.RenderMarkdown = true;
         }
 
         _isRunning = false;
@@ -1306,7 +1412,7 @@ public sealed partial class ChatPage : Page
 
         if (!_runToMessage.TryGetValue(runId, out var runMessage))
         {
-            runMessage = new ChatMessageViewModel("assistant", string.Empty, runId);
+            runMessage = new ChatMessageViewModel("assistant", string.Empty, runId, renderMarkdown: false);
             _runToMessage[runId] = runMessage;
             Messages.Add(runMessage);
         }

@@ -10,6 +10,7 @@ public sealed class CodexSessionStore
 {
     private readonly ILogger<CodexSessionStore> _logger;
     private readonly CodexCliInfo _cliInfo;
+    private const string PlaceholderAssistantText = "（未输出正文）";
 
     public CodexSessionStore(ILogger<CodexSessionStore> logger, CodexCliInfo cliInfo)
     {
@@ -281,6 +282,36 @@ public sealed class CodexSessionStore
             var queue = new Queue<CodexSessionMessage>(Math.Min(limit, 128));
             var traceBuffer = new List<CodexSessionTraceEntry>(capacity: 16);
             var traceByCallId = new Dictionary<string, CodexSessionTraceEntry>(StringComparer.Ordinal);
+            string? pendingAgentMessage = null;
+
+            void FlushPendingAssistantMessage()
+            {
+                if (pendingAgentMessage is null && traceBuffer.Count == 0)
+                {
+                    return;
+                }
+
+                var text = string.IsNullOrWhiteSpace(pendingAgentMessage)
+                    ? PlaceholderAssistantText
+                    : pendingAgentMessage.Trim();
+
+                if (queue.Count >= limit)
+                {
+                    queue.Dequeue();
+                }
+
+                queue.Enqueue(new CodexSessionMessage
+                {
+                    Role = "assistant",
+                    Text = text,
+                    Trace = traceBuffer.Count > 0 ? traceBuffer.ToArray() : null,
+                });
+
+                pendingAgentMessage = null;
+                traceBuffer.Clear();
+                traceByCallId.Clear();
+            }
+
             while (true)
             {
                 var line = reader.ReadLine();
@@ -299,6 +330,12 @@ public sealed class CodexSessionStore
                             traceBuffer.Add(entry);
                         }
 
+                        continue;
+                    }
+
+                    if (TryParseAgentMessageLine(line, out var agentMessageText))
+                    {
+                        pendingAgentMessage = agentMessageText;
                         continue;
                     }
 
@@ -351,14 +388,26 @@ public sealed class CodexSessionStore
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(role)
-                    || (string.IsNullOrWhiteSpace(text) && (images is null || images.Count == 0)))
+                if (string.IsNullOrWhiteSpace(role))
                 {
                     continue;
                 }
 
-                if (string.Equals(role, "user", StringComparison.OrdinalIgnoreCase))
+                var isUser = string.Equals(role, "user", StringComparison.OrdinalIgnoreCase);
+                var isAssistant = string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase);
+                var hasImages = images is not null && images.Count > 0;
+                var hasTrace = isAssistant && traceBuffer.Count > 0;
+                var hasText = !string.IsNullOrWhiteSpace(text);
+
+                if (!hasText && !hasImages && !hasTrace)
                 {
+                    continue;
+                }
+
+                if (isUser)
+                {
+                    FlushPendingAssistantMessage();
+
                     var sanitized = SanitizeUserMessageText(text);
                     if (string.IsNullOrWhiteSpace(sanitized) && (images is null || images.Count == 0))
                     {
@@ -367,9 +416,24 @@ public sealed class CodexSessionStore
 
                     text = sanitized ?? string.Empty;
                 }
-                else if (!string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase))
+                else if (!isAssistant)
                 {
                     continue;
+                }
+
+                if (isAssistant)
+                {
+                    if (string.IsNullOrWhiteSpace(text) && !hasImages && !string.IsNullOrWhiteSpace(pendingAgentMessage))
+                    {
+                        text = pendingAgentMessage;
+                    }
+
+                    pendingAgentMessage = null;
+
+                    if (string.IsNullOrWhiteSpace(text) && hasTrace && !hasImages)
+                    {
+                        text = PlaceholderAssistantText;
+                    }
                 }
 
                 if (queue.Count >= limit)
@@ -395,6 +459,7 @@ public sealed class CodexSessionStore
                 }
             }
 
+            FlushPendingAssistantMessage();
             return queue.ToArray();
         }
         catch (Exception ex)
@@ -510,6 +575,49 @@ public sealed class CodexSessionStore
             }
 
             if (!TryGetString(payload, "text", out var parsed) || string.IsNullOrWhiteSpace(parsed))
+            {
+                return false;
+            }
+
+            text = parsed;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseAgentMessageLine(string line, out string text)
+    {
+        text = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+
+            if (!TryGetString(root, "type", out var type) || !string.Equals(type, "event_msg", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!TryGetString(payload, "type", out var payloadType) || !string.Equals(payloadType, "agent_message", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!TryGetString(payload, "message", out var parsed) || string.IsNullOrWhiteSpace(parsed))
             {
                 return false;
             }

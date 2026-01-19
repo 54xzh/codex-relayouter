@@ -43,6 +43,7 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 
 ### [GET] /api/v1/sessions/{sessionId}/messages
 **描述:** 获取会话历史消息（解析 JSONL 的 message 记录，用于前端回放；过滤 developer/system/环境上下文，仅保留 user/assistant 的真实对话；并可附带 trace 回放；当 message.content 中包含 `input_image/output_image` 时会返回 `images`（data URL）供前端解码显示）
+补充：兼容 `event_msg.agent_message` 作为 assistant 正文兜底；当会话末尾仅有 trace 且无正文输出时，会刷出占位 assistant 消息（文本为 `（未输出正文）`）以避免历史丢失。
 
 ### [WS] /ws
 **描述:** 命令与事件通道（聊天发送/流式输出/多端同步）
@@ -92,6 +93,7 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 - [202601192057_status_popup_layout](../../history/2026-01/202601192057_status_popup_layout/) - 状态查询：/status 移除 AGENTS 行，状态弹窗排版优化
 - [202601192202_context_usage_status](../../history/2026-01/202601192202_context_usage_status/) - 状态查询：/status 精简为限额与上下文用量
 - [202601192243_context_usage_flyout](../../history/2026-01/202601192243_context_usage_flyout/) - 状态查询：限额重置时间格式调整，WinUI 侧改为 Flyout + 进度条
+- [202601200021_fix_incomplete_reply_history](../../history/2026-01/202601200021_fix_incomplete_reply_history/) - 修复：无正文/中断回复的会话回放不再丢失（agent_message 兜底 + trace 末尾刷出占位 assistant）
 
 ## 依赖
 - Codex CLI

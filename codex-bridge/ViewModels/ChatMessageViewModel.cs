@@ -12,12 +12,14 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 {
     private string _text;
     private bool _isTraceExpanded;
+    private bool _renderMarkdown;
     private readonly Dictionary<string, TraceEntryViewModel> _traceById = new(StringComparer.Ordinal);
 
-    public ChatMessageViewModel(string role, string text, string? runId = null)
+    public ChatMessageViewModel(string role, string text, string? runId = null, bool renderMarkdown = true)
     {
         Role = role;
         _text = text;
+        _renderMarkdown = renderMarkdown;
         RunId = runId;
         CreatedAt = DateTimeOffset.Now;
         Trace.CollectionChanged += TraceOnCollectionChanged;
@@ -63,6 +65,23 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
 
     public bool HasImages => Images.Count > 0;
 
+    public bool RenderMarkdown
+    {
+        get => _renderMarkdown;
+        set
+        {
+            if (_renderMarkdown == value)
+            {
+                return;
+            }
+
+            _renderMarkdown = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowMarkdown));
+            OnPropertyChanged(nameof(ShowPlainText));
+        }
+    }
+
     public string Text
     {
         get => _text;
@@ -76,10 +95,35 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
             _text = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasText));
+            OnPropertyChanged(nameof(MarkdownText));
+            OnPropertyChanged(nameof(ShowMarkdown));
+            OnPropertyChanged(nameof(ShowPlainText));
         }
     }
 
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
+
+    /// <summary>
+    /// Text with underscores escaped to prevent Markdown from interpreting them as italic markers.
+    /// Only asterisks (*) will be used for emphasis.
+    /// </summary>
+    public string MarkdownText => EscapeUnderscores(Text);
+
+    private static string EscapeUnderscores(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+
+        // Escape underscores that could be interpreted as emphasis markers.
+        // This prevents _text_ from becoming italic, while preserving *text* for italic.
+        return text.Replace("_", @"\_");
+    }
+
+    public bool ShowMarkdown => IsAssistant && HasText && RenderMarkdown;
+
+    public bool ShowPlainText => IsAssistant && HasText && !RenderMarkdown;
 
     public void AppendLine(string line)
     {

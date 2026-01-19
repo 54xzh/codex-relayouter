@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** UI 渲染、用户输入、与 Bridge Server 通信、diff 展示与应用控制
 - **状态:** 开发中
-- **最后更新:** 2026-01-19
+- **最后更新:** 2026-01-20
 
 ## 规范
 
@@ -28,6 +28,7 @@ Chat 页支持图片输入：可选择本地图片并随消息发送；消息列
 Chat 输入框支持粘贴图片：当剪贴板包含图片（Bitmap/文件/`data:image/...;base64,...`）时，粘贴会自动将图片加入待发送预览列表。
 兼容性：为避免 `image/bmp` 导致 Codex 拒绝，剪贴板图片与 BMP 文件会自动转为 PNG 再发送。
 快捷键：Enter 发送；Shift+Enter 换行。
+Chat 回复正文支持 Markdown 渲染（使用 `CommunityToolkit.WinUI.UI.Controls.Markdown` 的 `MarkdownTextBlock`；支持代码块/列表/链接）；代码块默认使用更浅背景 + 黑字 + 描边 + 圆角以提升对比度，行内代码使用浅底黑字（带描边）；流式阶段先以纯文本渲染，完成后切换为 Markdown；链接点击仅允许打开 http/https 外链。
 Chat 页右下角提供“上下文用量”入口：以文本标签形式显示上下文用量百分比（无数据为 `-%`，右侧带圆形进度条可视化）；点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额以进度条可视化，重置时间格式 `MM-dd HH:mm`；限额不可用时自动隐藏，并随内容自动收缩卡片大小；其他缺失项显示“不可用”）。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
@@ -51,6 +52,7 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 
 #### 场景: 会话管理
 支持列出/创建/选择会话：创建会话需填写 `cwd`（工作区）；列表标题优先使用“首条 user 消息”截断（已过滤环境/指令上下文；若提取失败则回退显示 `sessionId`）；点击会话进入聊天页后自动加载该会话的历史消息（仅显示 user/assistant 的真实对话），并在聊天发送时绑定 `sessionId` 以便 resume。
+会话历史回放会保留无正文但包含 Trace/图片的消息，避免重启后记录丢失。
 点击会话进入聊天页后，会自动定位到消息列表最底部，确保直接看到最新一条消息。
 选择已有会话后，会自动使用该会话的 `cwd` 作为 Chat 页 `workingDirectory`（同步到 `ConnectionService.WorkingDirectory`），避免手动重复选择工作目录。
 
@@ -91,3 +93,6 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601192202_context_usage_status](../../history/2026-01/202601192202_context_usage_status/) - WinUI：按钮显示上下文用量百分比（无数据为 `-%`），弹窗仅展示连接状态/5h/周/上下文用量
 - [202601192243_context_usage_flyout](../../history/2026-01/202601192243_context_usage_flyout/) - WinUI：上下文用量菜单 Flyout（限额进度条/重置时间）
 - [202601192345_remove_window_min_size](../../history/2026-01/202601192345_remove_window_min_size/) - WinUI：移除主窗口最小尺寸限制（允许缩小）
+- [202601200021_fix_incomplete_reply_history](../../history/2026-01/202601200021_fix_incomplete_reply_history/) - 修复：无正文/中断回复的会话回放不再丢失（trace-only 消息保留）
+- [202601200039_chat_markdown_rendering](../../history/2026-01/202601200039_chat_markdown_rendering/) - WinUI：Chat 回复支持 Markdown 渲染
+- [202601200110_markdown_codeblock_style](../../history/2026-01/202601200110_markdown_codeblock_style/) - WinUI：Markdown 代码块样式优化（浅背景/黑字/圆角）

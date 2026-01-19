@@ -37,6 +37,7 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.WinUI.UI.Controls.Markdown" Version="7.1.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7463" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260101001" />
   </ItemGroup>
@@ -77,14 +78,8 @@
 
     <MakeDir Directories="$(BridgeServerDestDir);$(BridgeServerAppxDestDir)" />
 
-    <Copy
-      SourceFiles="@(BridgeServerFiles)"
-      DestinationFiles="@(BridgeServerFiles->'$(BridgeServerDestDir)%(RecursiveDir)%(Filename)%(Extension)')"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BridgeServerFiles)" DestinationFiles="@(BridgeServerFiles->'$(BridgeServerDestDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
 
-    <Copy
-      SourceFiles="@(BridgeServerFiles)"
-      DestinationFiles="@(BridgeServerFiles->'$(BridgeServerAppxDestDir)%(RecursiveDir)%(Filename)%(Extension)')"
-      SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(BridgeServerFiles)" DestinationFiles="@(BridgeServerFiles->'$(BridgeServerAppxDestDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 </Project>
