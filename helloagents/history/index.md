@@ -40,6 +40,8 @@
 | 202601191212 | trace_command_reasoning_visual_align | 修复 | ?已完成（命令/思考字体与间距对齐） | [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) |
 | 202601191231 | trace_auto_expand | 修复 | ?已完成（Trace 自动展开/折叠） | [202601191231_trace_auto_expand](2026-01/202601191231_trace_auto_expand/) |
 | 202601191252 | trace_autoscroll_bottom | 修复 | ?已完成（Trace 更新自动滚动） | [202601191252_trace_autoscroll_bottom](2026-01/202601191252_trace_autoscroll_bottom/) |
+| 202601191305 | trace_auto_collapse_fix | 修复 | ?已完成（输出正文后 Trace 自动折叠） | [202601191305_trace_auto_collapse_fix](2026-01/202601191305_trace_auto_collapse_fix/) |
+| 202601191324 | chat_paste_images_shortcuts | 功能 | ?已完成（粘贴图片/快捷发送） | [202601191324_chat_paste_images_shortcuts](2026-01/202601191324_chat_paste_images_shortcuts/) |
 
 ---
 
@@ -79,3 +81,5 @@
 - [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐
 - [202601191231_trace_auto_expand](2026-01/202601191231_trace_auto_expand/) - WinUI：Trace 执行中默认展开，最新思考摘要自动展开；完成后自动折叠
 - [202601191252_trace_autoscroll_bottom](2026-01/202601191252_trace_autoscroll_bottom/) - WinUI：Trace/输出增量更新时，列表在底部自动跟随滚动
+- [202601191305_trace_auto_collapse_fix](2026-01/202601191305_trace_auto_collapse_fix/) - WinUI：修复输出正文后 Trace 未自动折叠
+- [202601191324_chat_paste_images_shortcuts](2026-01/202601191324_chat_paste_images_shortcuts/) - WinUI：Chat 输入框粘贴图片 + Enter 发送/Shift+Enter 换行

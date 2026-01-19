@@ -24,11 +24,13 @@
 #### 场景: 聊天与流式输出
 以增量事件实时渲染回复，支持取消与重试。
 Chat 页支持图片输入：可选择本地图片并随消息发送；消息列表会展示图片缩略图，且在会话历史回放时可解码显示 session 中的 base64 图片（data URL）。
+Chat 输入框支持粘贴图片：当剪贴板包含图片（Bitmap/文件/`data:image/...;base64,...`）时，粘贴会自动将图片加入待发送预览列表。
+快捷键：Enter 发送；Shift+Enter 换行。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
 Chat 页工作区按钮的描述文本显示 `cwd` 的目录名（basename）；点击后菜单提供“在资源管理器中打开”、“重新选择（FolderPicker）”，并展示最近使用的 5 条 `cwd`（完整路径）以便快速切换。
 当工作区不在 Git 仓库目录内导致旧链路拒绝运行时，可在 Chat 页启用“跳过 Git 检查”（默认开启，保留兼容）。
-Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示；运行中默认展开 Trace，且最新一条思考摘要会自动展开；当 Trace/输出增量更新且列表处于底部时，会自动保持滚动到最底部；运行完成并输出回复后自动折叠 Trace；最终回答显示在 trace 之后（可展开查看）；执行命令条目点击命令块即可展开查看输出（不再单独显示“输出”二级折叠）；Trace 内命令/输出统一使用非衬线字体，且成功状态默认折叠（不显示 `completed` / `exitCode=0`）；命令条目视觉与思考摘要保持一致（标题字体与上下内边距一致，避免双层效果），命令文本最多显示三行，超出截断为省略号；多行内容使用更大的上下留白与固定行高提升可读性。
+Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示；运行中默认展开 Trace，且最新一条思考摘要会自动展开；当 Trace/输出增量更新且列表处于底部时，会自动保持滚动到最底部；开始输出回复（正文）后自动折叠 Trace；最终回答显示在 trace 之后（可展开查看）；执行命令条目点击命令块即可展开查看输出（不再单独显示“输出”二级折叠）；Trace 内命令/输出统一使用非衬线字体，且成功状态默认折叠（不显示 `completed` / `exitCode=0`）；命令条目视觉与思考摘要保持一致（标题字体与上下内边距一致，避免双层效果），命令文本最多显示三行，超出截断为省略号；多行内容使用更大的上下留白与固定行高提升可读性。
 
 #### 场景: 一键启动（自动拉起后端）
 启动 WinUI 时自动拉起本机 Bridge Server（sidecar），随机端口并进行健康检查；Chat 页默认自动连接，无需用户手动填写 WS 地址。
@@ -77,3 +79,5 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601191212_trace_command_reasoning_visual_align](../../history/2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐
 - [202601191231_trace_auto_expand](../../history/2026-01/202601191231_trace_auto_expand/) - WinUI：Trace 执行中默认展开，最新思考摘要自动展开；完成后自动折叠
 - [202601191252_trace_autoscroll_bottom](../../history/2026-01/202601191252_trace_autoscroll_bottom/) - WinUI：Trace/输出增量更新时，列表在底部自动跟随滚动
+- [202601191305_trace_auto_collapse_fix](../../history/2026-01/202601191305_trace_auto_collapse_fix/) - WinUI：修复输出正文后 Trace 未自动折叠
+- [202601191324_chat_paste_images_shortcuts](../../history/2026-01/202601191324_chat_paste_images_shortcuts/) - WinUI：Chat 输入框粘贴图片 + Enter 发送/Shift+Enter 换行

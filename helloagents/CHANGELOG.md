@@ -19,12 +19,13 @@
 - 新增 WinUI：Chat 页工作区按钮显示目录名（basename），菜单支持资源管理器打开/重新选择，并展示最近 5 条 cwd（完整路径）以便快速切换
 - 新增 WinUI：选择已有会话后自动使用该会话的 `cwd` 作为 workingDirectory
 - 新增图片能力：Chat 页支持选择并发送图片（`chat.send(images)`），Bridge Server 转发到 app-server 并在会话回放接口返回 `images`（data URL），WinUI 可解码显示 session 中的 base64 图片
+- 新增聊天输入增强：输入框支持粘贴图片；Enter 发送、Shift+Enter 换行
 - 新增仓库入口文档 `README.md`：项目简介、快速开始、配置与安全、文档索引（指向 `helloagents/wiki`）
 
 ### 变更
 - 调整 WinUI 启动窗口体验：增大初始大小，并将初始大小作为最小尺寸；启动时屏幕居中（避免窗口元素被遮挡）
 - 优化 WinUI Chat 页执行命令展示：命令块点击展开输出，移除独立的“输出”折叠块
-- 优化 WinUI Chat 页 Trace 交互：运行中默认展开“执行过程”，最新思考摘要自动展开；运行完成输出后自动折叠“执行过程”
+- 优化 WinUI Chat 页 Trace 交互：运行中默认展开“执行过程”，最新思考摘要自动展开；开始输出正文后自动折叠“执行过程”
 - 优化 WinUI Chat 页 Trace 样式：命令/输出统一非衬线字体；成功状态默认折叠（不显示 `completed` / `exitCode=0`）
 - 优化 WinUI Chat 页 Trace 容器视觉：移除浅灰背景，改用透明背景 + 描边；多行内容时增加 padding 并放宽输出最大高度
 - 优化 WinUI Chat 页 Trace 命令条目：视觉与思考摘要一致以避免双层容器；命令多行时最多显示 3 行并截断
@@ -36,6 +37,7 @@
 - 修复会话历史回放包含 developer/环境/指令上下文：仅展示 user/assistant 的真实对话，并支持从 `## My request for Codex:` 提取真实用户消息
 - 修复点击进入会话后未自动定位到对话底部：会话历史加载完成后自动滚动到最后一条消息
 - 修复 WinUI Chat 页执行过程（Trace）增量更新时，处于列表底部不会自动跟随滚动的问题
+- 修复 WinUI Chat 页输出正文后 Trace 未自动折叠的问题
 - 修复新建会话缺少 `cwd` 导致 `codex exec resume` 报错：创建时强制写入 `cwd`，并在 resume 时自动补写缺失值（使用 workingDirectory）
 - 修复会话 `session_meta` 缺少 Codex 必填字段 `cli_version` 导致 resume 失败：创建时写入并在必要时自动补写
 - 修复 `codex exec resume` 场景下传递 `--sandbox workspace-write` 报参数解析错误（exitCode=2）：将 `resume` 子命令放到 exec options 之后传参

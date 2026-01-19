@@ -297,12 +297,13 @@
                     <TextBox
                         x:Name="PromptTextBox"
                         AcceptsReturn="True"
-                        PlaceholderText="输入消息（Shift+Enter 换行，Enter 发送）"
+                        PlaceholderText="输入消息（Enter 发送，Shift+Enter 换行，可粘贴图片）"
                         TextWrapping="Wrap"
                         MaxHeight="150"
                         BorderThickness="0"
                         Background="Transparent"
-                        KeyDown="PromptTextBox_KeyDown" />
+                        KeyDown="PromptTextBox_KeyDown"
+                        Paste="PromptTextBox_Paste" />
 
                     <Button
                         Grid.Column="1"

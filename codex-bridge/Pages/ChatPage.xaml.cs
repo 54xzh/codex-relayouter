@@ -17,10 +17,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 
 namespace codex_bridge.Pages;
 
@@ -245,9 +249,7 @@ public sealed partial class ChatPage : Page
                     continue;
                 }
 
-                var vm = new ChatImageViewModel(dataUrl);
-                PendingImages.Add(vm);
-                _ = vm.LoadAsync();
+                AddPendingImage(dataUrl);
             }
 
             UpdatePendingImagesUi();
@@ -256,6 +258,18 @@ public sealed partial class ChatPage : Page
         {
             SetSessionStatus($"选择图片失败: {ex.Message}");
         }
+    }
+
+    private void AddPendingImage(string dataUrl)
+    {
+        if (string.IsNullOrWhiteSpace(dataUrl))
+        {
+            return;
+        }
+
+        var vm = new ChatImageViewModel(dataUrl);
+        PendingImages.Add(vm);
+        _ = vm.LoadAsync();
     }
 
     private void RemovePendingImage_Click(object sender, RoutedEventArgs e)
@@ -702,6 +716,7 @@ public sealed partial class ChatPage : Page
         {
             runMessage.Text = text;
             AttachImages(runMessage, images);
+            runMessage.IsTraceExpanded = false;
             return;
         }
 
@@ -718,6 +733,10 @@ public sealed partial class ChatPage : Page
         }
 
         var message = GetOrCreateRunMessage(runId);
+        if (string.Equals(message.Text, "思考中…", StringComparison.Ordinal))
+        {
+            message.IsTraceExpanded = false;
+        }
         message.AppendTextDelta(delta);
     }
 
@@ -1056,6 +1075,81 @@ public sealed partial class ChatPage : Page
         return list.Count == 0 ? null : list.ToArray();
     }
 
+    private static bool IsSupportedImageExtension(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp";
+    }
+
+    private static bool TryNormalizeImageDataUrl(string? text, out string dataUrl)
+    {
+        dataUrl = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (!trimmed.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var commaIndex = trimmed.IndexOf(',');
+        if (commaIndex < 0)
+        {
+            return false;
+        }
+
+        var meta = trimmed.Substring(0, commaIndex);
+        if (!meta.Contains(";base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var payload = trimmed.Substring(commaIndex + 1).Trim();
+        if (payload.Length == 0)
+        {
+            return false;
+        }
+
+        if (EstimateDecodedBytesFromBase64(payload) > MaxImageBytes)
+        {
+            return false;
+        }
+
+        dataUrl = trimmed;
+        return true;
+    }
+
+    private static long EstimateDecodedBytesFromBase64(string base64)
+    {
+        if (string.IsNullOrEmpty(base64))
+        {
+            return 0;
+        }
+
+        var padding = 0;
+        if (base64.EndsWith("==", StringComparison.Ordinal))
+        {
+            padding = 2;
+        }
+        else if (base64.EndsWith("=", StringComparison.Ordinal))
+        {
+            padding = 1;
+        }
+
+        var length = (long)base64.Length;
+        var decodedLength = (length * 3 / 4) - padding;
+        return decodedLength < 0 ? 0 : decodedLength;
+    }
+
     private static Task<string?> TryCreateImageDataUrlAsync(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -1081,6 +1175,119 @@ public sealed partial class ChatPage : Page
         }
 
         return ReadAndEncodeAsync(path, mimeType);
+    }
+
+    private static async Task<string?> TryCreateImageDataUrlAsync(RandomAccessStreamReference? bitmap)
+    {
+        if (bitmap is null)
+        {
+            return null;
+        }
+
+        IRandomAccessStreamWithContentType stream;
+        try
+        {
+            stream = await bitmap.OpenReadAsync();
+        }
+        catch
+        {
+            return null;
+        }
+
+        using (stream)
+        {
+            string? mimeType = null;
+            try
+            {
+                var contentType = stream.ContentType;
+                if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    mimeType = contentType;
+                }
+            }
+            catch
+            {
+                mimeType = null;
+            }
+
+            using var input = stream.AsStreamForRead();
+            using var memory = new MemoryStream();
+            try
+            {
+                await input.CopyToAsync(memory);
+            }
+            catch
+            {
+                return null;
+            }
+
+            var bytes = memory.ToArray();
+            if (bytes.Length == 0 || bytes.Length > MaxImageBytes)
+            {
+                return null;
+            }
+
+            mimeType ??= TryGuessImageMimeType(bytes);
+            if (mimeType is null)
+            {
+                return null;
+            }
+
+            var base64 = Convert.ToBase64String(bytes);
+            return $"data:{mimeType};base64,{base64}";
+        }
+    }
+
+    private static string? TryGuessImageMimeType(byte[] bytes)
+    {
+        if (bytes.Length >= 8 &&
+            bytes[0] == 0x89 &&
+            bytes[1] == 0x50 &&
+            bytes[2] == 0x4E &&
+            bytes[3] == 0x47 &&
+            bytes[4] == 0x0D &&
+            bytes[5] == 0x0A &&
+            bytes[6] == 0x1A &&
+            bytes[7] == 0x0A)
+        {
+            return "image/png";
+        }
+
+        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+        {
+            return "image/jpeg";
+        }
+
+        if (bytes.Length >= 6 &&
+            bytes[0] == (byte)'G' &&
+            bytes[1] == (byte)'I' &&
+            bytes[2] == (byte)'F' &&
+            bytes[3] == (byte)'8' &&
+            (bytes[4] == (byte)'7' || bytes[4] == (byte)'9') &&
+            bytes[5] == (byte)'a')
+        {
+            return "image/gif";
+        }
+
+        if (bytes.Length >= 2 && bytes[0] == (byte)'B' && bytes[1] == (byte)'M')
+        {
+            return "image/bmp";
+        }
+
+        if (bytes.Length >= 12 &&
+            bytes[0] == (byte)'R' &&
+            bytes[1] == (byte)'I' &&
+            bytes[2] == (byte)'F' &&
+            bytes[3] == (byte)'F' &&
+            bytes[8] == (byte)'W' &&
+            bytes[9] == (byte)'E' &&
+            bytes[10] == (byte)'B' &&
+            bytes[11] == (byte)'P')
+        {
+            return "image/webp";
+        }
+
+        return null;
     }
 
     private static async Task<string?> ReadAndEncodeAsync(string path, string mimeType)
@@ -1156,6 +1363,99 @@ public sealed partial class ChatPage : Page
         }
 
         return property.TryGetInt32(out value);
+    }
+
+    private async void PromptTextBox_Paste(object sender, TextControlPasteEventArgs e)
+    {
+        try
+        {
+            if (PendingImages.Count >= MaxPendingImages)
+            {
+                SetSessionStatus($"最多添加 {MaxPendingImages} 张图片");
+                return;
+            }
+
+            var content = Clipboard.GetContent();
+            if (content is null)
+            {
+                return;
+            }
+
+            var shouldHandle = false;
+            var addedAny = false;
+
+            if (content.Contains(StandardDataFormats.Bitmap))
+            {
+                shouldHandle = true;
+
+                var bitmap = await content.GetBitmapAsync();
+                var dataUrl = await TryCreateImageDataUrlAsync(bitmap);
+                if (!string.IsNullOrWhiteSpace(dataUrl))
+                {
+                    AddPendingImage(dataUrl);
+                    addedAny = true;
+                }
+            }
+            else if (content.Contains(StandardDataFormats.StorageItems))
+            {
+                var items = await content.GetStorageItemsAsync();
+                foreach (var item in items)
+                {
+                    if (PendingImages.Count >= MaxPendingImages)
+                    {
+                        shouldHandle = true;
+                        break;
+                    }
+
+                    if (item is not StorageFile file)
+                    {
+                        continue;
+                    }
+
+                    if (!IsSupportedImageExtension(file.Path))
+                    {
+                        continue;
+                    }
+
+                    shouldHandle = true;
+                    var dataUrl = await TryCreateImageDataUrlAsync(file.Path);
+                    if (string.IsNullOrWhiteSpace(dataUrl))
+                    {
+                        continue;
+                    }
+
+                    AddPendingImage(dataUrl);
+                    addedAny = true;
+                }
+            }
+            else if (content.Contains(StandardDataFormats.Text))
+            {
+                var text = await content.GetTextAsync();
+                if (TryNormalizeImageDataUrl(text, out var dataUrl))
+                {
+                    shouldHandle = true;
+                    AddPendingImage(dataUrl);
+                    addedAny = true;
+                }
+            }
+
+            if (!shouldHandle)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            if (!addedAny && PendingImages.Count >= MaxPendingImages)
+            {
+                SetSessionStatus($"最多添加 {MaxPendingImages} 张图片");
+            }
+
+            UpdatePendingImagesUi();
+        }
+        catch (Exception ex)
+        {
+            SetSessionStatus($"粘贴图片失败: {ex.Message}");
+        }
     }
 
     private async void PromptTextBox_KeyDown(object sender, KeyRoutedEventArgs e)

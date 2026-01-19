@@ -179,7 +179,6 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         }
 
         latest.IsExpanded = true;
-        IsTraceExpanded = true;
     }
 
     public void AppendCommandOutputDelta(string id, string delta)
