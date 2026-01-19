@@ -54,3 +54,4 @@
 - 修复 workspace-write 模式无法请求权限：修正 app-server(JSON-RPC) 消息分类逻辑，避免将带 `method` 的 `requestApproval` server request 误判为 response 丢弃，从而确保可正常转发 `approval.requested` 并回传 `approval.respond` 的用户决定
 - 修复图片发送失败提示不明确/部分格式不兼容：WinUI 将剪贴板/BMP 图片转为 PNG（避免 `image/bmp` 导致失败），并在 `turn.status=failed` 时透出 `turn.error.message`
 - 修复回复未完整输出正文时重启后会话回放丢失记录：服务端兼容 `event_msg.agent_message` 并在末尾 trace 兜底刷出占位 assistant 消息；WinUI 历史加载不再过滤 trace-only 消息
+- 修复 WinUI Markdown 渲染时，带缩进的无序列表（如 `  - item`）可能无法被识别为列表的问题

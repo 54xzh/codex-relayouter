@@ -374,7 +374,7 @@
                         VerticalAlignment="Bottom"
                         Click="CancelButton_Click"
                         Visibility="Collapsed"
-                        ToolTipService.ToolTip="取消当前任务">
+                        ToolTipService.ToolTip="取消任务">
                         <SymbolIcon Symbol="Cancel" />
                     </Button>
                 </Grid>

@@ -52,6 +52,7 @@
 | 202601200021 | fix_incomplete_reply_history | 修复 | ✅已完成（无正文回复历史不丢失） | [202601200021_fix_incomplete_reply_history](2026-01/202601200021_fix_incomplete_reply_history/) |
 | 202601200039 | chat_markdown_rendering | 功能 | ✅已完成（Chat Markdown 渲染） | [202601200039_chat_markdown_rendering](2026-01/202601200039_chat_markdown_rendering/) |
 | 202601200110 | markdown_codeblock_style | 功能 | ✅已完成（Markdown 代码块样式优化） | [202601200110_markdown_codeblock_style](2026-01/202601200110_markdown_codeblock_style/) |
+| 202601200237 | fix_markdown_list_rendering | 修复 | ✅已完成（Markdown 列表渲染兼容） | [202601200237_fix_markdown_list_rendering](2026-01/202601200237_fix_markdown_list_rendering/) |
 
 ---
 
@@ -103,3 +104,4 @@
 - [202601200021_fix_incomplete_reply_history](2026-01/202601200021_fix_incomplete_reply_history/) - 修复：无正文/中断回复的会话回放不再丢失（trace-only 消息保留）
 - [202601200039_chat_markdown_rendering](2026-01/202601200039_chat_markdown_rendering/) - WinUI：Chat 回复支持 Markdown 渲染
 - [202601200110_markdown_codeblock_style](2026-01/202601200110_markdown_codeblock_style/) - WinUI：Markdown 代码块浅色背景/黑字/圆角样式
+- [202601200237_fix_markdown_list_rendering](2026-01/202601200237_fix_markdown_list_rendering/) - 修复：Markdown 无序列表渲染兼容（缩进列表/标签行后列表）

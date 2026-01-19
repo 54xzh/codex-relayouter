@@ -29,6 +29,7 @@ Chat 输入框支持粘贴图片：当剪贴板包含图片（Bitmap/文件/`dat
 兼容性：为避免 `image/bmp` 导致 Codex 拒绝，剪贴板图片与 BMP 文件会自动转为 PNG 再发送。
 快捷键：Enter 发送；Shift+Enter 换行。
 Chat 回复正文支持 Markdown 渲染（使用 `CommunityToolkit.WinUI.UI.Controls.Markdown` 的 `MarkdownTextBlock`；支持代码块/列表/链接）；代码块默认使用更浅背景 + 黑字 + 描边 + 圆角以提升对比度，行内代码使用浅底黑字（带描边）；流式阶段先以纯文本渲染，完成后切换为 Markdown；链接点击仅允许打开 http/https 外链。
+为提升兼容性，客户端会对 Markdown 做轻量规范化：当检测到列表行存在 1-3 个前导空格（例如 `  - item`）时会去缩进，并在“标签行(:/：) 后紧跟列表”时自动补空行；当检测到只包含 `─` 的分隔线（如 `────`）且后续紧跟文本行时，会自动补一个空行避免被合并；并将普通段落的单换行按“硬换行”处理（尽量做到 `\n` 就换行，避开 fenced code block 与缩进代码块）。
 Chat 页右下角提供“上下文用量”入口：以文本标签形式显示上下文用量百分比（无数据为 `-%`，右侧带圆形进度条可视化）；点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额以进度条可视化，重置时间格式 `MM-dd HH:mm`；限额不可用时自动隐藏，并随内容自动收缩卡片大小；其他缺失项显示“不可用”）。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。

@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace codex_bridge.ViewModels;
 
@@ -107,7 +108,176 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
     /// Text with underscores escaped to prevent Markdown from interpreting them as italic markers.
     /// Only asterisks (*) will be used for emphasis.
     /// </summary>
-    public string MarkdownText => EscapeUnderscores(Text);
+    public string MarkdownText => NormalizeMarkdownForRendering(EscapeUnderscores(Text));
+
+    private static string NormalizeMarkdownForRendering(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+
+        // MarkdownTextBlock 的解析在某些情况下对“带缩进的列表”不够稳定。
+        // 这里做轻量规范化：
+        // 1) 列表行（最多 3 个前导空格）去缩进，避免被当作普通段落/代码块。
+        // 2) “标签行(:/：) + 下一行是列表”时补一个空行，兼容更严格的解析器。
+        // 3) 不在 fenced code block（```/~~~）内改写内容。
+        var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var builder = new StringBuilder(normalized.Length + 16);
+        var insideFence = false;
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            var trimmed = line.AsSpan().TrimStart();
+
+            if (IsFenceMarker(trimmed))
+            {
+                insideFence = !insideFence;
+            }
+
+            if (!insideFence)
+            {
+                if (IsBoxRuleLine(trimmed) && index + 1 < lines.Length && !string.IsNullOrWhiteSpace(lines[index + 1]))
+                {
+                    builder.Append(line);
+                    builder.Append('\n');
+                    builder.Append('\n');
+                    continue;
+                }
+
+                if (IsLabelLine(line) && index + 1 < lines.Length && IsListLine(lines[index + 1]))
+                {
+                    builder.Append(line);
+                    builder.Append('\n');
+                    builder.Append('\n');
+                    continue;
+                }
+
+                line = DedentListLine(line);
+                line = ConvertSoftBreaksToHardBreaks(line);
+            }
+
+            builder.Append(line);
+            if (index < lines.Length - 1)
+            {
+                builder.Append('\n');
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsFenceMarker(ReadOnlySpan<char> trimmedLine) =>
+        trimmedLine.StartsWith("```".AsSpan(), StringComparison.Ordinal)
+        || trimmedLine.StartsWith("~~~".AsSpan(), StringComparison.Ordinal);
+
+    private static bool IsBoxRuleLine(ReadOnlySpan<char> trimmedLine)
+    {
+        if (trimmedLine.Length < 3)
+        {
+            return false;
+        }
+
+        foreach (var ch in trimmedLine)
+        {
+            if (ch != '─')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsLabelLine(string line) =>
+        line.EndsWith(":", StringComparison.Ordinal) || line.EndsWith("：", StringComparison.Ordinal);
+
+    private static string ConvertSoftBreaksToHardBreaks(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+        {
+            return line;
+        }
+
+        // 期望表现：只要文本里包含 \n，就显示换行（而不是被 Markdown 合并成空格）。
+        // CommonMark: 行尾添加两个空格可强制硬换行（Hard Line Break）。
+        // - 不处理空行
+        // - 不处理可能属于“缩进代码块”的行（4 空格或 Tab 开头）以避免改写代码内容
+        // - 已经是硬换行（行尾已有两个空格）或显式硬换行（行尾反斜杠）则不重复添加
+        if (line.Length >= 1 && (line[0] == '\t' || (line.Length >= 4 && line.StartsWith("    ", StringComparison.Ordinal))))
+        {
+            return line;
+        }
+
+        if (line.EndsWith("  ", StringComparison.Ordinal) || line.EndsWith("\\", StringComparison.Ordinal))
+        {
+            return line;
+        }
+
+        return $"{line}  ";
+    }
+
+    private static bool IsListLine(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+        {
+            return false;
+        }
+
+        var index = 0;
+        while (index < line.Length && index < 3 && line[index] == ' ')
+        {
+            index++;
+        }
+
+        if (index >= line.Length)
+        {
+            return false;
+        }
+
+        var marker = line[index];
+        if ((marker == '-' || marker == '*' || marker == '+') && index + 1 < line.Length && line[index + 1] == ' ')
+        {
+            return true;
+        }
+
+        var digitIndex = index;
+        while (digitIndex < line.Length && char.IsDigit(line[digitIndex]))
+        {
+            digitIndex++;
+        }
+
+        if (digitIndex == index || digitIndex + 1 >= line.Length)
+        {
+            return false;
+        }
+
+        var delimiter = line[digitIndex];
+        return (delimiter == '.' || delimiter == ')') && line[digitIndex + 1] == ' ';
+    }
+
+    private static string DedentListLine(string line)
+    {
+        if (string.IsNullOrEmpty(line))
+        {
+            return line;
+        }
+
+        var index = 0;
+        while (index < line.Length && index < 3 && line[index] == ' ')
+        {
+            index++;
+        }
+
+        if (index == 0)
+        {
+            return line;
+        }
+
+        return IsListLine(line) ? line[index..] : line;
+    }
 
     private static string EscapeUnderscores(string text)
     {
