@@ -12,6 +12,14 @@
     <Page.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <FontFamily x:Key="ChineseUIFont">Microsoft YaHei UI,Microsoft YaHei,Segoe UI</FontFamily>
+        
+        <!-- 无边框 TextBox 样式 -->
+        <Style x:Key="BorderlessTextBoxStyle" TargetType="TextBox">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
     </Page.Resources>
 
     <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="16" RowSpacing="12">
@@ -157,11 +165,10 @@
 
                                                         <ScrollViewer
                                                             MaxHeight="360"
-                                                            Margin="0,14,0,0"
+                                                            Margin="0,4,0,0"
                                                             Visibility="{x:Bind HasOutput, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <TextBlock
                                                                 FontFamily="{StaticResource ChineseUIFont}"
-                                                                Margin="0,8,0,0"
                                                                 Text="{x:Bind Output, Mode=OneWay}"
                                                                 TextWrapping="Wrap"
                                                                 LineHeight="22"
@@ -184,10 +191,9 @@
                                                                 LineHeight="22"
                                                                 LineStackingStrategy="BlockLineHeight" />
                                                         </Expander.Header>
-                                                        <ScrollViewer MaxHeight="260" Margin="0,14,0,0">
+                                                        <ScrollViewer MaxHeight="260" Margin="0,4,0,0">
                                                             <TextBlock
                                                                 FontFamily="{StaticResource ChineseUIFont}"
-                                                                Margin="0,8,0,0"
                                                                 Text="{x:Bind Text, Mode=OneWay}"
                                                                 TextWrapping="Wrap"
                                                                 LineHeight="22"
@@ -204,6 +210,7 @@
                                 <ScrollViewer
                                     HorizontalScrollBarVisibility="Auto"
                                     VerticalScrollBarVisibility="Disabled"
+                                    Margin="16,0,0,0"
                                     Visibility="{x:Bind HasImages, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <ItemsControl ItemsSource="{x:Bind Images, Mode=OneWay}">
                                         <ItemsControl.ItemsPanel>
@@ -231,6 +238,7 @@
                                 <TextBlock
                                     Text="{x:Bind Text, Mode=OneWay}"
                                     TextWrapping="Wrap"
+                                    Margin="16,0,0,0"
                                     Visibility="{x:Bind HasText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                             </StackPanel>
                         </Border>
@@ -246,8 +254,8 @@
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
-            Padding="4">
-            <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+            Padding="8,6">
+            <Grid RowDefinitions="Auto,Auto" RowSpacing="6" VerticalAlignment="Center">
                 <!-- 待发送图片预览 -->
                 <ScrollViewer
                     x:Name="PendingImagesScrollViewer"
@@ -293,35 +301,49 @@
                 </ScrollViewer>
 
                 <!-- 输入与操作 -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <TextBox
                         x:Name="PromptTextBox"
                         AcceptsReturn="True"
                         PlaceholderText="输入消息（Enter 发送，Shift+Enter 换行，可粘贴图片）"
                         TextWrapping="Wrap"
                         MaxHeight="150"
-                        BorderThickness="0"
-                        Background="Transparent"
+                        Style="{StaticResource BorderlessTextBoxStyle}"
                         KeyDown="PromptTextBox_KeyDown"
                         Paste="PromptTextBox_Paste" />
 
                     <Button
                         Grid.Column="1"
+                        Width="40"
+                        Height="36"
+                        Padding="0"
+                        VerticalAlignment="Bottom"
                         Click="AddImageButton_Click"
                         ToolTipService.ToolTip="添加图片">
                         <SymbolIcon Symbol="Pictures" />
                     </Button>
 
                     <Button
+                        x:Name="SendButton"
                         Grid.Column="2"
+                        Width="40"
+                        Height="36"
+                        Padding="0"
+                        VerticalAlignment="Bottom"
                         Click="SendButton_Click"
                         Style="{StaticResource AccentButtonStyle}"
                         ToolTipService.ToolTip="发送消息">
                         <SymbolIcon Symbol="Send" />
                     </Button>
                     <Button
-                        Grid.Column="3"
+                        x:Name="CancelButton"
+                        Grid.Column="2"
+                        Width="40"
+                        Height="36"
+                        Padding="0"
+                        VerticalAlignment="Bottom"
                         Click="CancelButton_Click"
+                        Visibility="Collapsed"
                         ToolTipService.ToolTip="取消当前任务">
                         <SymbolIcon Symbol="Cancel" />
                     </Button>

@@ -43,6 +43,7 @@ public sealed partial class ChatPage : Page
     private ScrollViewer? _messagesScrollViewer;
     private bool _scrollToBottomPending;
     private bool _forceScrollToBottomOnNextContentUpdate;
+    private bool _isRunning;
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = new();
 
@@ -68,6 +69,7 @@ public sealed partial class ChatPage : Page
         ApplySessionStateToUi();
         ApplyConnectionSettingsToUi();
         UpdatePendingImagesUi();
+        UpdateActionButtonsVisibility();
         EnsureMessagesScrollViewer();
         await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
@@ -752,6 +754,9 @@ public sealed partial class ChatPage : Page
         _runToMessage[runId] = message;
         Messages.Add(message);
         SetSessionStatus($"运行中: {runId}");
+
+        _isRunning = true;
+        UpdateActionButtonsVisibility();
     }
 
     private void HandleSessionCreated(JsonElement data)
@@ -944,6 +949,9 @@ public sealed partial class ChatPage : Page
         {
             message.IsTraceExpanded = false;
         }
+
+        _isRunning = false;
+        UpdateActionButtonsVisibility();
     }
 
     private void HandleRunCanceled(JsonElement data)
@@ -952,6 +960,9 @@ public sealed partial class ChatPage : Page
         {
             SetSessionStatus($"已取消: {runId}");
         }
+
+        _isRunning = false;
+        UpdateActionButtonsVisibility();
     }
 
     private void HandleRunFailed(JsonElement data)
@@ -985,6 +996,9 @@ public sealed partial class ChatPage : Page
         {
             runMessage.Text = message.Trim();
         }
+
+        _isRunning = false;
+        UpdateActionButtonsVisibility();
     }
 
     private void HandleRunRejected(JsonElement data)
@@ -993,6 +1007,15 @@ public sealed partial class ChatPage : Page
         {
             SetSessionStatus($"被拒绝: {reason}");
         }
+
+        _isRunning = false;
+        UpdateActionButtonsVisibility();
+    }
+
+    private void UpdateActionButtonsVisibility()
+    {
+        SendButton.Visibility = _isRunning ? Visibility.Collapsed : Visibility.Visible;
+        CancelButton.Visibility = _isRunning ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateConnectionUI()
