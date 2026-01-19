@@ -39,6 +39,7 @@
 | 202601191206 | trace_command_no_double_and_3lines | 修复 | ?已完成（命令条目无双层/三行截断） | [202601191206_trace_command_no_double_and_3lines](2026-01/202601191206_trace_command_no_double_and_3lines/) |
 | 202601191212 | trace_command_reasoning_visual_align | 修复 | ?已完成（命令/思考字体与间距对齐） | [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) |
 | 202601191231 | trace_auto_expand | 修复 | ?已完成（Trace 自动展开/折叠） | [202601191231_trace_auto_expand](2026-01/202601191231_trace_auto_expand/) |
+| 202601191252 | trace_autoscroll_bottom | 修复 | ?已完成（Trace 更新自动滚动） | [202601191252_trace_autoscroll_bottom](2026-01/202601191252_trace_autoscroll_bottom/) |
 
 ---
 
@@ -77,3 +78,4 @@
 - [202601191206_trace_command_no_double_and_3lines](2026-01/202601191206_trace_command_no_double_and_3lines/) - WinUI：命令条目与思考摘要一致以避免双层容器；命令最多三行截断
 - [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐
 - [202601191231_trace_auto_expand](2026-01/202601191231_trace_auto_expand/) - WinUI：Trace 执行中默认展开，最新思考摘要自动展开；完成后自动折叠
+- [202601191252_trace_autoscroll_bottom](2026-01/202601191252_trace_autoscroll_bottom/) - WinUI：Trace/输出增量更新时，列表在底部自动跟随滚动

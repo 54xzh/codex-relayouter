@@ -28,7 +28,7 @@ Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
 Chat 页工作区按钮的描述文本显示 `cwd` 的目录名（basename）；点击后菜单提供“在资源管理器中打开”、“重新选择（FolderPicker）”，并展示最近使用的 5 条 `cwd`（完整路径）以便快速切换。
 当工作区不在 Git 仓库目录内导致旧链路拒绝运行时，可在 Chat 页启用“跳过 Git 检查”（默认开启，保留兼容）。
-Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示；运行中默认展开 Trace，且最新一条思考摘要会自动展开；运行完成并输出回复后自动折叠 Trace；最终回答显示在 trace 之后（可展开查看）；执行命令条目点击命令块即可展开查看输出（不再单独显示“输出”二级折叠）；Trace 内命令/输出统一使用非衬线字体，且成功状态默认折叠（不显示 `completed` / `exitCode=0`）；命令条目视觉与思考摘要保持一致（标题字体与上下内边距一致，避免双层效果），命令文本最多显示三行，超出截断为省略号；多行内容使用更大的上下留白与固定行高提升可读性。
+Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示；运行中默认展开 Trace，且最新一条思考摘要会自动展开；当 Trace/输出增量更新且列表处于底部时，会自动保持滚动到最底部；运行完成并输出回复后自动折叠 Trace；最终回答显示在 trace 之后（可展开查看）；执行命令条目点击命令块即可展开查看输出（不再单独显示“输出”二级折叠）；Trace 内命令/输出统一使用非衬线字体，且成功状态默认折叠（不显示 `completed` / `exitCode=0`）；命令条目视觉与思考摘要保持一致（标题字体与上下内边距一致，避免双层效果），命令文本最多显示三行，超出截断为省略号；多行内容使用更大的上下留白与固定行高提升可读性。
 
 #### 场景: 一键启动（自动拉起后端）
 启动 WinUI 时自动拉起本机 Bridge Server（sidecar），随机端口并进行健康检查；Chat 页默认自动连接，无需用户手动填写 WS 地址。
@@ -76,3 +76,4 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601191206_trace_command_no_double_and_3lines](../../history/2026-01/202601191206_trace_command_no_double_and_3lines/) - WinUI：命令条目与思考摘要一致以避免双层容器；命令最多三行截断
 - [202601191212_trace_command_reasoning_visual_align](../../history/2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐
 - [202601191231_trace_auto_expand](../../history/2026-01/202601191231_trace_auto_expand/) - WinUI：Trace 执行中默认展开，最新思考摘要自动展开；完成后自动折叠
+- [202601191252_trace_autoscroll_bottom](../../history/2026-01/202601191252_trace_autoscroll_bottom/) - WinUI：Trace/输出增量更新时，列表在底部自动跟随滚动

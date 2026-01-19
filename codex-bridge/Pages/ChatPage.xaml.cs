@@ -29,12 +29,16 @@ public sealed partial class ChatPage : Page
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const int MaxPendingImages = 4;
     private const int MaxImageBytes = 10 * 1024 * 1024;
+    private const double AutoScrollBottomTolerance = 24;
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient = new();
     private readonly Dictionary<string, ChatMessageViewModel> _runToMessage = new();
     private string? _historyLoadedForSessionId;
     private int _autoConnectAttempted;
+    private ScrollViewer? _messagesScrollViewer;
+    private bool _scrollToBottomPending;
+    private bool _forceScrollToBottomOnNextContentUpdate;
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = new();
 
@@ -60,6 +64,7 @@ public sealed partial class ChatPage : Page
         ApplySessionStateToUi();
         ApplyConnectionSettingsToUi();
         UpdatePendingImagesUi();
+        EnsureMessagesScrollViewer();
         await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
     }
@@ -309,6 +314,7 @@ public sealed partial class ChatPage : Page
         }
 
         PromptTextBox.Text = string.Empty;
+        _forceScrollToBottomOnNextContentUpdate = true;
 
         try
         {
@@ -335,6 +341,7 @@ public sealed partial class ChatPage : Page
         }
         catch (Exception ex)
         {
+            _forceScrollToBottomOnNextContentUpdate = false;
             SetSessionStatus($"发送失败: {ex.Message}");
         }
     }
@@ -519,6 +526,10 @@ public sealed partial class ChatPage : Page
             return;
         }
 
+        EnsureMessagesScrollViewer();
+        var wasAtBottom = IsMessagesScrollAtBottom();
+        var contentUpdated = false;
+
         switch (envelope.Name)
         {
             case "bridge.connected":
@@ -529,12 +540,15 @@ public sealed partial class ChatPage : Page
                 break;
             case "chat.message":
                 HandleChatMessage(envelope.Data);
+                contentUpdated = true;
                 break;
             case "chat.message.delta":
                 HandleChatMessageDelta(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.started":
                 HandleRunStarted(envelope.Data);
+                contentUpdated = true;
                 break;
             case "session.created":
                 HandleSessionCreated(envelope.Data);
@@ -543,18 +557,23 @@ public sealed partial class ChatPage : Page
                 break;
             case "codex.line":
                 HandleCodexLine(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.command":
                 HandleRunCommand(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.command.outputDelta":
                 HandleRunCommandOutputDelta(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.reasoning":
                 HandleRunReasoning(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.reasoning.delta":
                 HandleRunReasoningDelta(envelope.Data);
+                contentUpdated = true;
                 break;
             case "approval.requested":
                 _ = HandleApprovalRequestedAsync(envelope.Data);
@@ -563,22 +582,108 @@ public sealed partial class ChatPage : Page
                 break;
             case "run.completed":
                 HandleRunCompleted(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.canceled":
                 HandleRunCanceled(envelope.Data);
                 break;
             case "run.failed":
                 HandleRunFailed(envelope.Data);
+                contentUpdated = true;
                 break;
             case "run.rejected":
                 HandleRunRejected(envelope.Data);
                 break;
         }
 
-        if (Messages.Count > 0)
+        if (contentUpdated && (_forceScrollToBottomOnNextContentUpdate || wasAtBottom))
+        {
+            _forceScrollToBottomOnNextContentUpdate = false;
+            RequestScrollMessagesToBottom();
+        }
+    }
+
+    private void EnsureMessagesScrollViewer()
+    {
+        if (_messagesScrollViewer is not null)
+        {
+            return;
+        }
+
+        MessagesListView.UpdateLayout();
+        _messagesScrollViewer = FindDescendant<ScrollViewer>(MessagesListView);
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T typed)
+            {
+                return typed;
+            }
+
+            var descendant = FindDescendant<T>(child);
+            if (descendant is not null)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsMessagesScrollAtBottom()
+    {
+        if (_messagesScrollViewer is null)
+        {
+            return true;
+        }
+
+        if (_messagesScrollViewer.ScrollableHeight <= 0)
+        {
+            return true;
+        }
+
+        return _messagesScrollViewer.VerticalOffset >= _messagesScrollViewer.ScrollableHeight - AutoScrollBottomTolerance;
+    }
+
+    private void RequestScrollMessagesToBottom()
+    {
+        if (_scrollToBottomPending || Messages.Count == 0)
+        {
+            return;
+        }
+
+        _scrollToBottomPending = true;
+        _dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ScrollMessagesToBottom);
+    }
+
+    private void ScrollMessagesToBottom()
+    {
+        _scrollToBottomPending = false;
+
+        if (Messages.Count == 0)
+        {
+            return;
+        }
+
+        MessagesListView.UpdateLayout();
+
+        if (_messagesScrollViewer is null)
+        {
+            EnsureMessagesScrollViewer();
+        }
+
+        if (_messagesScrollViewer is null)
         {
             MessagesListView.ScrollIntoView(Messages[^1]);
+            return;
         }
+
+        _messagesScrollViewer.ChangeView(null, _messagesScrollViewer.ScrollableHeight, null, true);
     }
 
     private void HandleChatMessage(JsonElement data)
