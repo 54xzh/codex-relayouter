@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -22,6 +23,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -35,6 +37,8 @@ public sealed partial class ChatPage : Page
     private const int MaxPendingImages = 4;
     private const int MaxImageBytes = 10 * 1024 * 1024;
     private const double AutoScrollBottomTolerance = 24;
+    private const string ContextUsageUnavailableLabel = "-%";
+    private const string StatusUnavailableLabel = "不可用";
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly HttpClient _httpClient = new();
@@ -74,6 +78,7 @@ public sealed partial class ChatPage : Page
         EnsureMessagesScrollViewer();
         await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
+        await RefreshContextUsageAsync();
     }
 
     private async Task EnsureBackendAndConnectAsync()
@@ -204,6 +209,313 @@ public sealed partial class ChatPage : Page
                 }
             }
         }
+    }
+
+    private void StatusButton_Click(object sender, RoutedEventArgs e)
+    {
+        StatusBackendConnectionText.Text = $"后端连接: {(App.ConnectionService.IsConnected ? "已连接" : "未连接")}";
+        StatusFlyout.ShowAt(StatusButton);
+        _ = RefreshContextUsageAsync();
+    }
+
+    private async Task RefreshContextUsageAsync()
+    {
+        try
+        {
+            var text = await FetchStatusTextAsync();
+            await RunOnUiThreadAsync(() =>
+            {
+                UpdateContextUsageButton(text);
+                UpdateStatusFlyout(text);
+            });
+        }
+        catch
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                StatusButtonText.Text = ContextUsageUnavailableLabel;
+                UpdateContextUsageRing(null);
+                UpdateStatusFlyout(null);
+            });
+        }
+    }
+
+    private async Task<string?> FetchStatusTextAsync()
+    {
+        await App.BackendServer.EnsureStartedAsync();
+
+        var baseUri = App.BackendServer.HttpBaseUri;
+        if (baseUri is null)
+        {
+            return null;
+        }
+
+        var statusBuilder = new UriBuilder(new Uri(baseUri, "status"));
+        var sessionId = App.SessionState.CurrentSessionId;
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            statusBuilder.Query = $"sessionId={Uri.EscapeDataString(sessionId.Trim())}";
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, statusBuilder.Uri);
+
+        var token = App.ConnectionService.BearerToken;
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        using var response = await _httpClient.SendAsync(request, CancellationToken.None);
+        var text = await response.Content.ReadAsStringAsync(CancellationToken.None);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var reason = string.IsNullOrWhiteSpace(text) ? response.ReasonPhrase : text.Trim();
+            return $"请求失败: HTTP {(int)response.StatusCode} {response.ReasonPhrase}\r\n{reason}".Trim();
+        }
+
+        return text;
+    }
+
+    private void UpdateContextUsageButton(string? statusText)
+    {
+        if (TryExtractContextUsagePercent(statusText, out var percent))
+        {
+            var clamped = Math.Clamp(percent, 0, 100);
+            StatusButtonText.Text = $"{clamped}%";
+            UpdateContextUsageRing(clamped);
+        }
+        else
+        {
+            StatusButtonText.Text = ContextUsageUnavailableLabel;
+            UpdateContextUsageRing(null);
+        }
+    }
+
+    private static bool TryExtractContextUsagePercent(string? statusText, out int percent)
+    {
+        percent = default;
+        if (string.IsNullOrWhiteSpace(statusText))
+        {
+            return false;
+        }
+
+        var lines = statusText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (!line.StartsWith("上下文用量:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var value = line["上下文用量:".Length..].Trim();
+            var percentIndex = value.IndexOf('%', StringComparison.Ordinal);
+            if (percentIndex <= 0)
+            {
+                return false;
+            }
+
+            var number = value[..percentIndex].Trim();
+            return int.TryParse(number, out percent);
+        }
+
+        return false;
+    }
+
+    private const double ContextUsageRingSize = 14;
+    private const double ContextUsageRingStrokeThickness = 2;
+
+    private void UpdateContextUsageRing(int? percent)
+    {
+        StatusButtonRingArc.Visibility = Visibility.Collapsed;
+        StatusButtonRingFull.Visibility = Visibility.Collapsed;
+        StatusButtonRingArc.Data = null;
+
+        if (percent is null)
+        {
+            return;
+        }
+
+        var clamped = Math.Clamp(percent.Value, 0, 100);
+        if (clamped <= 0)
+        {
+            return;
+        }
+
+        if (clamped >= 100)
+        {
+            StatusButtonRingFull.Visibility = Visibility.Visible;
+            return;
+        }
+
+        StatusButtonRingArc.Data = BuildRingArcGeometry(clamped, ContextUsageRingSize, ContextUsageRingStrokeThickness);
+        StatusButtonRingArc.Visibility = Visibility.Visible;
+    }
+
+    private static Geometry BuildRingArcGeometry(int percent, double size, double strokeThickness)
+    {
+        var center = size / 2;
+        var radius = Math.Max(0, (size - strokeThickness) / 2);
+
+        var startAngle = -90d;
+        var sweepAngle = percent / 100d * 360d;
+        var endAngle = startAngle + sweepAngle;
+
+        Point PointAt(double angleDegrees)
+        {
+            var radians = angleDegrees * Math.PI / 180d;
+            var x = center + radius * Math.Cos(radians);
+            var y = center + radius * Math.Sin(radians);
+            return new Point(x, y);
+        }
+
+        var start = PointAt(startAngle);
+        var end = PointAt(endAngle);
+
+        var figure = new PathFigure
+        {
+            StartPoint = start,
+            IsClosed = false,
+            IsFilled = false,
+        };
+
+        figure.Segments.Add(new ArcSegment
+        {
+            Point = end,
+            Size = new Size(radius, radius),
+            SweepDirection = SweepDirection.Clockwise,
+            IsLargeArc = sweepAngle > 180d,
+        });
+
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
+    }
+
+    private void UpdateStatusFlyout(string? statusText)
+    {
+        StatusBackendConnectionText.Text = $"后端连接: {(App.ConnectionService.IsConnected ? "已连接" : "未连接")}";
+
+        UpdateRateLimitStatus(statusText, "5h限额:", "5h限额", StatusFiveHourSection, StatusFiveHourText, StatusFiveHourProgress);
+        UpdateRateLimitStatus(statusText, "周限额:", "周限额", StatusWeeklySection, StatusWeeklyText, StatusWeeklyProgress);
+
+        if (TryExtractContextUsagePercent(statusText, out var percent))
+        {
+            StatusContextUsageText.Text = $"上下文用量: {Math.Clamp(percent, 0, 100)}%";
+        }
+        else
+        {
+            StatusContextUsageText.Text = $"上下文用量: {StatusUnavailableLabel}";
+        }
+    }
+
+    private void UpdateRateLimitStatus(
+        string? statusText,
+        string prefix,
+        string displayName,
+        FrameworkElement container,
+        TextBlock label,
+        ProgressBar progressBar)
+    {
+        if (!TryExtractRateLimit(statusText, prefix, out var usedPercent, out var resetsAt))
+        {
+            container.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (usedPercent is null && string.IsNullOrWhiteSpace(resetsAt))
+        {
+            container.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        container.Visibility = Visibility.Visible;
+
+        var usedText = usedPercent is null ? StatusUnavailableLabel : $"{Math.Clamp(usedPercent.Value, 0, 100):0.#}%";
+        var resetsText = string.IsNullOrWhiteSpace(resetsAt) ? StatusUnavailableLabel : resetsAt;
+        label.Text = $"{displayName}: 已用 {usedText}，重置 {resetsText}";
+
+        if (usedPercent is null)
+        {
+            progressBar.IsIndeterminate = true;
+            progressBar.Value = 0;
+            return;
+        }
+
+        progressBar.IsIndeterminate = false;
+        progressBar.Value = Math.Clamp(usedPercent.Value, 0, 100);
+    }
+
+    private static bool TryExtractRateLimit(string? statusText, string prefix, out double? usedPercent, out string? resetsAt)
+    {
+        usedPercent = null;
+        resetsAt = null;
+
+        if (string.IsNullOrWhiteSpace(statusText))
+        {
+            return false;
+        }
+
+        var lines = statusText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (!line.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var value = line[prefix.Length..].Trim();
+            if (string.Equals(value, StatusUnavailableLabel, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            var resetToken = "重置";
+            var resetIndex = value.IndexOf(resetToken, StringComparison.Ordinal);
+            if (resetIndex >= 0)
+            {
+                var resetValue = value[(resetIndex + resetToken.Length)..].Trim();
+                if (!string.IsNullOrWhiteSpace(resetValue)
+                    && !string.Equals(resetValue, StatusUnavailableLabel, StringComparison.Ordinal))
+                {
+                    resetsAt = resetValue;
+                }
+            }
+
+            const string usedTokenPrimary = "已用";
+            const string usedTokenFallback = "使用";
+
+            var usedToken = value.Contains(usedTokenPrimary, StringComparison.Ordinal) ? usedTokenPrimary : usedTokenFallback;
+            var usedIndex = value.IndexOf(usedToken, StringComparison.Ordinal);
+            if (usedIndex >= 0)
+            {
+                var usedSlice = resetIndex > usedIndex
+                    ? value[(usedIndex + usedToken.Length)..resetIndex]
+                    : value[(usedIndex + usedToken.Length)..];
+
+                var percentIndex = usedSlice.IndexOf('%', StringComparison.Ordinal);
+                if (percentIndex > 0)
+                {
+                    var numberText = usedSlice[..percentIndex].Trim().TrimEnd('，', ',', ';');
+                    if (TryParsePercent(numberText, out var parsed))
+                    {
+                        usedPercent = parsed;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParsePercent(string text, out double value)
+    {
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value)
+            || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e)
@@ -953,6 +1265,7 @@ public sealed partial class ChatPage : Page
 
         _isRunning = false;
         UpdateActionButtonsVisibility();
+        _ = RefreshContextUsageAsync();
     }
 
     private void HandleRunCanceled(JsonElement data)
@@ -964,6 +1277,7 @@ public sealed partial class ChatPage : Page
 
         _isRunning = false;
         UpdateActionButtonsVisibility();
+        _ = RefreshContextUsageAsync();
     }
 
     private void HandleRunFailed(JsonElement data)
@@ -981,6 +1295,10 @@ public sealed partial class ChatPage : Page
         var prefix = string.IsNullOrWhiteSpace(exitCodeInfo) ? "失败" : $"失败{exitCodeInfo}";
         SetSessionStatus($"{prefix}: {runId} {statusMessage}".Trim());
 
+        _isRunning = false;
+        UpdateActionButtonsVisibility();
+        _ = RefreshContextUsageAsync();
+
         if (!hasMessage)
         {
             return;
@@ -997,9 +1315,6 @@ public sealed partial class ChatPage : Page
         {
             runMessage.Text = message.Trim();
         }
-
-        _isRunning = false;
-        UpdateActionButtonsVisibility();
     }
 
     private void HandleRunRejected(JsonElement data)

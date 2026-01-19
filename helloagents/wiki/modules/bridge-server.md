@@ -32,6 +32,9 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 ### [GET] /api/v1/health
 **描述:** 健康检查
 
+### [GET] /status
+**描述:** 上下文用量摘要（文本；包含 5h限额/周限额/上下文用量；缺失项显示“不可用”；限额重置时间格式 `MM-dd HH:mm`）
+
 ### [GET] /api/v1/sessions
 **描述:** 列出会话（读取 `~/.codex/sessions` 的 `session_meta` 元数据，并提取“首条有效 user 消息”作为标题；会跳过注入上下文）
 
@@ -84,6 +87,11 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 - [202601181551_trace_timeline](../../history/2026-01/202601181551_trace_timeline/) - Trace 时间线：会话回放解析 `agent_reasoning` 与工具调用并按时间序展示
 - [202601181735_app_server_approvals](../../history/2026-01/202601181735_app_server_approvals/) - 运行链路：切换 `codex app-server` 以支持审批请求与 delta 流式事件
 - [202601190157_chat_images](../../history/2026-01/202601190157_chat_images/) - 图片输入与回放：`chat.send(images)` + `/sessions/{id}/messages.images`
+- [202601191959_chat_status_button](../../history/2026-01/202601191959_chat_status_button/) - 状态查询：新增 `GET /status`；WinUI 提供“状态”按钮弹窗展示
+- [202601192021_status_command_output](../../history/2026-01/202601192021_status_command_output/) - 状态查询：/status 指令输出增强（含限额等）
+- [202601192057_status_popup_layout](../../history/2026-01/202601192057_status_popup_layout/) - 状态查询：/status 移除 AGENTS 行，状态弹窗排版优化
+- [202601192202_context_usage_status](../../history/2026-01/202601192202_context_usage_status/) - 状态查询：/status 精简为限额与上下文用量
+- [202601192243_context_usage_flyout](../../history/2026-01/202601192243_context_usage_flyout/) - 状态查询：限额重置时间格式调整，WinUI 侧改为 Flyout + 进度条
 
 ## 依赖
 - Codex CLI

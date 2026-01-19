@@ -352,11 +352,11 @@
         </Border>
 
         <!-- 设置栏 -->
-        <StackPanel
-            Grid.Row="3"
-            Orientation="Horizontal"
-            Spacing="8"
-            HorizontalAlignment="Left">
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+            <StackPanel
+                Orientation="Horizontal"
+                Spacing="8"
+                HorizontalAlignment="Left">
 
             <!-- 工作区设置 -->
             <DropDownButton x:Name="WorkspaceButton" ToolTipService.ToolTip="工作区设置">
@@ -445,6 +445,75 @@
                     </MenuFlyout>
                 </DropDownButton.Flyout>
             </DropDownButton>
-        </StackPanel>
+            </StackPanel>
+
+            <HyperlinkButton
+                x:Name="StatusButton"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Click="StatusButton_Click"
+                ToolTipService.ToolTip="上下文用量"
+                Padding="0"
+                MinWidth="0"
+                MinHeight="0"
+                Foreground="{ThemeResource TextFillColorPrimaryBrush}">
+                <HyperlinkButton.Content>
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock
+                            x:Name="StatusButtonText"
+                            Text="-%"
+                            VerticalAlignment="Center"
+                            Foreground="{Binding Foreground, ElementName=StatusButton}" />
+                        <Grid Width="14" Height="14" VerticalAlignment="Center" Margin="0,2,0,0">
+                            <Ellipse
+                                x:Name="StatusButtonRingTrack"
+                                Stroke="{ThemeResource CardStrokeColorDefaultBrush}"
+                                StrokeThickness="2"
+                                Opacity="0.4" />
+                            <Path
+                                x:Name="StatusButtonRingArc"
+                                Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+                                StrokeThickness="2"
+                                StrokeStartLineCap="Round"
+                                StrokeEndLineCap="Round" />
+                            <Ellipse
+                                x:Name="StatusButtonRingFull"
+                                Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+                                StrokeThickness="2"
+                                Visibility="Collapsed" />
+                        </Grid>
+                    </StackPanel>
+                </HyperlinkButton.Content>
+                <FlyoutBase.AttachedFlyout>
+                    <Flyout x:Name="StatusFlyout">
+                        <StackPanel Padding="14,12" Spacing="12" Language="zh-Hans">
+                            <StackPanel.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontSize" Value="14" />
+                                    <Setter Property="CharacterSpacing" Value="40" />
+                                    <Setter Property="LineHeight" Value="22" />
+                                    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                                </Style>
+                            </StackPanel.Resources>
+
+                            <TextBlock x:Name="StatusBackendConnectionText" Text="后端连接: 不可用" />
+
+                            <StackPanel x:Name="StatusFiveHourSection" Spacing="6" Visibility="Collapsed">
+                                <TextBlock x:Name="StatusFiveHourText" Text="5h限额: 不可用" />
+                                <ProgressBar x:Name="StatusFiveHourProgress" Minimum="0" Maximum="100" Height="6" IsIndeterminate="True" />
+                            </StackPanel>
+
+                            <StackPanel x:Name="StatusWeeklySection" Spacing="6" Visibility="Collapsed">
+                                <TextBlock x:Name="StatusWeeklyText" Text="周限额: 不可用" />
+                                <ProgressBar x:Name="StatusWeeklyProgress" Minimum="0" Maximum="100" Height="6" IsIndeterminate="True" />
+                            </StackPanel>
+
+                            <TextBlock x:Name="StatusContextUsageText" Text="上下文用量: 不可用" />
+                        </StackPanel>
+                    </Flyout>
+                </FlyoutBase.AttachedFlyout>
+            </HyperlinkButton>
+        </Grid>
     </Grid>
 </Page>

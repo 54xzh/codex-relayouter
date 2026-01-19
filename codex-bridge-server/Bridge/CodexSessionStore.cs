@@ -404,6 +404,29 @@ public sealed class CodexSessionStore
         }
     }
 
+    public string? TryGetSessionFilePath(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        try
+        {
+            var sessionsRoot = GetSessionsRoot();
+            if (!Directory.Exists(sessionsRoot))
+            {
+                return null;
+            }
+
+            return TryFindSessionFilePath(sessionsRoot, sessionId.Trim());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static CodexSessionTraceEntry? CreateReasoningTraceEntry(string text)
     {
         var trimmed = text?.Trim();

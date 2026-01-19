@@ -20,16 +20,18 @@
 - 新增 WinUI：选择已有会话后自动使用该会话的 `cwd` 作为 workingDirectory
 - 新增图片能力：Chat 页支持选择并发送图片（`chat.send(images)`），Bridge Server 转发到 app-server 并在会话回放接口返回 `images`（data URL），WinUI 可解码显示 session 中的 base64 图片
 - 新增聊天输入增强：输入框支持粘贴图片；Enter 发送、Shift+Enter 换行
+- 新增上下文用量展示：Chat 页右下角按钮显示上下文用量百分比（无数据为 `-%`），点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额进度条；重置时间 `MM-dd HH:mm`；缺失项显示“不可用”）
 - 新增仓库入口文档 `README.md`：项目简介、快速开始、配置与安全、文档索引（指向 `helloagents/wiki`）
 
 ### 变更
-- 调整 WinUI 启动窗口体验：增大初始大小，并将初始大小作为最小尺寸；启动时屏幕居中（避免窗口元素被遮挡）
+- 调整 WinUI 启动窗口体验：增大初始大小并居中；移除最小尺寸限制（允许缩小窗口）
 - 优化 WinUI Chat 页执行命令展示：命令块点击展开输出，移除独立的“输出”折叠块
 - 优化 WinUI Chat 页 Trace 交互：运行中默认展开“执行过程”，最新思考摘要自动展开；开始输出正文后自动折叠“执行过程”
 - 优化 WinUI Chat 页 Trace 样式：命令/输出统一非衬线字体；成功状态默认折叠（不显示 `completed` / `exitCode=0`）
 - 优化 WinUI Chat 页 Trace 容器视觉：移除浅灰背景，改用透明背景 + 描边；多行内容时增加 padding 并放宽输出最大高度
 - 优化 WinUI Chat 页 Trace 命令条目：视觉与思考摘要一致以避免双层容器；命令多行时最多显示 3 行并截断
 - 对齐 WinUI Chat 页 Trace 字体与间距：命令执行与思考摘要标题/内容的字体与上下边距一致
+- 优化上下文用量菜单排版：Flyout 加宽并调整行距/字间距，限额改为进度条可视化
 
 ### 修复
 - 修复 MSIX 调试部署/打包场景下未包含 `bridge-server/` 导致自动启动失败

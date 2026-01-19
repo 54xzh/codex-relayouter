@@ -19,6 +19,9 @@ Bridge Server 对外提供两类接口：
 #### [GET] /api/v1/health
 **描述:** 健康检查
 
+#### [GET] /status
+**描述:** 上下文用量摘要（文本；包含 5h限额/周限额/上下文用量；缺失项显示“不可用”）
+
 ### Workspaces
 
 #### [GET] /api/v1/workspaces

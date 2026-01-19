@@ -43,6 +43,12 @@
 | 202601191305 | trace_auto_collapse_fix | 修复 | ?已完成（输出正文后 Trace 自动折叠） | [202601191305_trace_auto_collapse_fix](2026-01/202601191305_trace_auto_collapse_fix/) |
 | 202601191324 | chat_paste_images_shortcuts | 功能 | ?已完成（粘贴图片/快捷发送） | [202601191324_chat_paste_images_shortcuts](2026-01/202601191324_chat_paste_images_shortcuts/) |
 | 202601191827 | chat_image_failure_fix | 修复 | ?已完成（图片发送失败修复） | [202601191827_chat_image_failure_fix](2026-01/202601191827_chat_image_failure_fix/) |
+| 202601191959 | chat_status_button | 功能 | ✅已完成（/status 状态按钮） | [202601191959_chat_status_button](2026-01/202601191959_chat_status_button/) |
+| 202601192021 | status_command_output | 功能 | ✅已完成（/status 指令输出增强） | [202601192021_status_command_output](2026-01/202601192021_status_command_output/) |
+| 202601192057 | status_popup_layout | 修复 | ✅已完成（状态弹窗排版优化） | [202601192057_status_popup_layout](2026-01/202601192057_status_popup_layout/) |
+| 202601192202 | context_usage_status | 功能 | ✅已完成（上下文用量精简展示） | [202601192202_context_usage_status](2026-01/202601192202_context_usage_status/) |
+| 202601192243 | context_usage_flyout | 功能 | ✅已完成（上下文用量 Flyout/限额进度条） | [202601192243_context_usage_flyout](2026-01/202601192243_context_usage_flyout/) |
+| 202601192345 | remove_window_min_size | 修复 | ✅已完成（移除窗口最小尺寸限制） | [202601192345_remove_window_min_size](2026-01/202601192345_remove_window_min_size/) |
 
 ---
 
@@ -85,3 +91,9 @@
 - [202601191305_trace_auto_collapse_fix](2026-01/202601191305_trace_auto_collapse_fix/) - WinUI：修复输出正文后 Trace 未自动折叠
 - [202601191324_chat_paste_images_shortcuts](2026-01/202601191324_chat_paste_images_shortcuts/) - WinUI：Chat 输入框粘贴图片 + Enter 发送/Shift+Enter 换行
 - [202601191827_chat_image_failure_fix](2026-01/202601191827_chat_image_failure_fix/) - 修复：BMP/剪贴板图片发送导致 codex 执行失败 + 失败原因透出
+- [202601191959_chat_status_button](2026-01/202601191959_chat_status_button/) - 功能：Chat 页状态按钮（展示 /status）
+- [202601192021_status_command_output](2026-01/202601192021_status_command_output/) - 功能：/status 指令输出增强（模型/目录/批准策略/沙盒/账户/session/限额）
+- [202601192057_status_popup_layout](2026-01/202601192057_status_popup_layout/) - 修复：/status 移除 AGENTS 行，状态弹窗加宽并调整间距
+- [202601192202_context_usage_status](2026-01/202601192202_context_usage_status/) - 功能：上下文用量精简展示（按钮显示百分比；弹窗展示连接状态/5h/周/上下文用量）
+- [202601192243_context_usage_flyout](2026-01/202601192243_context_usage_flyout/) - 功能：上下文用量菜单 Flyout（限额进度条/重置时间）
+- [202601192345_remove_window_min_size](2026-01/202601192345_remove_window_min_size/) - WinUI：移除主窗口最小尺寸限制（允许缩小）

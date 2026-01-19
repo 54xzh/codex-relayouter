@@ -13,10 +13,11 @@
 ### XAML 约定
 - 字体：容器（如 `StackPanel`）不支持 `FontFamily`，也不要在容器上使用 `TextElement.FontFamily`；需要统一字体时请在文本控件（如 `TextBlock`）上设置 `FontFamily`，或在 `Resources` 中对 `TextBlock`/`Control` 定义 Style。
 - Flyout 菜单：`MenuFlyoutItem` 的字体通常不会从触发按钮内容继承；需要统一中文字体时请在 `MenuFlyoutItem` 上显式设置 `FontFamily`（或通过资源字典/Style 统一配置）。
+- 简体字形：为避免系统为繁体语言/区域时回退到繁体字形字体，可在根容器设置 `Language="zh-Hans"`，让字体回退始终选择简体字形。
 
 ### 窗口约定
 - 启动时窗口默认在当前屏幕工作区居中。
-- 启动时窗口初始大小会同步作为最小尺寸，避免用户缩到过小导致 UI 元素被遮挡。
+- 启动时窗口会按工作区计算初始大小并居中，但不限制最小尺寸（允许用户自由缩小窗口）。
 
 ### 需求: GUI 核心交互
 **模块:** WinUI Client
@@ -27,6 +28,7 @@ Chat 页支持图片输入：可选择本地图片并随消息发送；消息列
 Chat 输入框支持粘贴图片：当剪贴板包含图片（Bitmap/文件/`data:image/...;base64,...`）时，粘贴会自动将图片加入待发送预览列表。
 兼容性：为避免 `image/bmp` 导致 Codex 拒绝，剪贴板图片与 BMP 文件会自动转为 PNG 再发送。
 快捷键：Enter 发送；Shift+Enter 换行。
+Chat 页右下角提供“上下文用量”入口：以文本标签形式显示上下文用量百分比（无数据为 `-%`，右侧带圆形进度条可视化）；点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额以进度条可视化，重置时间格式 `MM-dd HH:mm`；限额不可用时自动隐藏，并随内容自动收缩卡片大小；其他缺失项显示“不可用”）。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
 Chat 页工作区按钮的描述文本显示 `cwd` 的目录名（basename）；点击后菜单提供“在资源管理器中打开”、“重新选择（FolderPicker）”，并展示最近使用的 5 条 `cwd`（完整路径）以便快速切换。
@@ -83,3 +85,9 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601191305_trace_auto_collapse_fix](../../history/2026-01/202601191305_trace_auto_collapse_fix/) - WinUI：修复输出正文后 Trace 未自动折叠
 - [202601191324_chat_paste_images_shortcuts](../../history/2026-01/202601191324_chat_paste_images_shortcuts/) - WinUI：Chat 输入框粘贴图片 + Enter 发送/Shift+Enter 换行
 - [202601191827_chat_image_failure_fix](../../history/2026-01/202601191827_chat_image_failure_fix/) - 修复：BMP/剪贴板图片发送导致 codex 执行失败 + 失败原因透出
+- [202601191959_chat_status_button](../../history/2026-01/202601191959_chat_status_button/) - WinUI：Chat 页右下角“状态”按钮，弹窗展示 `/status`
+- [202601192021_status_command_output](../../history/2026-01/202601192021_status_command_output/) - WinUI：状态弹窗展示“/status 指令输出”（含限额等字段）
+- [202601192057_status_popup_layout](../../history/2026-01/202601192057_status_popup_layout/) - WinUI：状态弹窗加宽并调整行距/字间距；/status 移除 AGENTS 行
+- [202601192202_context_usage_status](../../history/2026-01/202601192202_context_usage_status/) - WinUI：按钮显示上下文用量百分比（无数据为 `-%`），弹窗仅展示连接状态/5h/周/上下文用量
+- [202601192243_context_usage_flyout](../../history/2026-01/202601192243_context_usage_flyout/) - WinUI：上下文用量菜单 Flyout（限额进度条/重置时间）
+- [202601192345_remove_window_min_size](../../history/2026-01/202601192345_remove_window_min_size/) - WinUI：移除主窗口最小尺寸限制（允许缩小）
