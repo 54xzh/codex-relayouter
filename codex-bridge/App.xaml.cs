@@ -33,6 +33,7 @@ namespace codex_bridge
         public static BackendServerManager BackendServer { get; } = new();
         public static AppSessionState SessionState { get; } = new();
         public static ConnectionService ConnectionService { get; } = new();
+        public static SessionPreferences SessionPreferences { get; } = new();
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code

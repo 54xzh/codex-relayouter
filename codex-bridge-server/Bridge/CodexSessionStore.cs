@@ -492,6 +492,43 @@ public sealed class CodexSessionStore
         }
     }
 
+    /// <summary>
+    /// 删除会话文件，移至回收站。
+    /// </summary>
+    /// <param name="sessionId">会话 ID</param>
+    /// <returns>是否成功删除</returns>
+    public bool Delete(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return false;
+        }
+
+        var filePath = TryGetSessionFilePath(sessionId);
+        if (filePath is null || !File.Exists(filePath))
+        {
+            _logger.LogWarning("删除会话失败: 未找到会话文件 {SessionId}", sessionId);
+            return false;
+        }
+
+        try
+        {
+            // 使用 Microsoft.VisualBasic 将文件移至回收站
+            Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                filePath,
+                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+
+            _logger.LogInformation("已将会话文件移至回收站: {FilePath}", filePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "删除会话文件失败: {FilePath}", filePath);
+            return false;
+        }
+    }
+
     private static CodexSessionTraceEntry? CreateReasoningTraceEntry(string text)
     {
         var trimmed = text?.Trim();

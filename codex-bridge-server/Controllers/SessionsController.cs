@@ -80,4 +80,26 @@ public sealed class SessionsController : ControllerBase
 
         return Ok(messages);
     }
+
+    [HttpDelete("{sessionId}")]
+    public IActionResult Delete([FromRoute] string sessionId)
+    {
+        if (!_authorizer.IsAuthorized(HttpContext))
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return BadRequest(new { message = "sessionId 不能为空" });
+        }
+
+        var success = _sessionStore.Delete(sessionId);
+        if (!success)
+        {
+            return NotFound(new { message = $"未找到会话或删除失败: {sessionId}" });
+        }
+
+        return Ok(new { message = "会话已删除", sessionId });
+    }
 }

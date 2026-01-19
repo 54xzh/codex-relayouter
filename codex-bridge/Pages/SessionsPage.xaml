@@ -63,9 +63,15 @@
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="16,12">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="4">
+                        Padding="16,12"
+                        RightTapped="SessionItem_RightTapped">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <!-- Status icons -->
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE718;" FontSize="12" Visibility="{x:Bind IsPinned}" />
+                                <FontIcon Glyph="&#xED1A;" FontSize="12" Visibility="{x:Bind IsHidden}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
                                 <TextBlock
                                     Text="{x:Bind Title}"
                                     Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -82,7 +88,7 @@
                                     TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <SymbolIcon
-                                Grid.Column="1"
+                                Grid.Column="2"
                                 Symbol="Forward"
                                 VerticalAlignment="Center"
                                 Opacity="0.5" />

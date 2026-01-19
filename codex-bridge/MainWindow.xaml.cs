@@ -5,6 +5,7 @@ using codex_bridge.Pages;
 using codex_bridge.ViewModels;
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -27,10 +28,16 @@ namespace codex_bridge
 
             WindowSizing.ApplyStartupSizingAndCenter(this);
 
-            // Load recent sessions on startup
-            _ = LoadRecentSessionsAsync();
+            // Load preferences and recent sessions on startup
+            _ = InitializeAsync();
 
             Navigate("chat");
+        }
+
+        private async Task InitializeAsync()
+        {
+            await App.SessionPreferences.LoadAsync();
+            await LoadRecentSessionsAsync();
         }
 
         private async Task LoadRecentSessionsAsync(bool append = false)
@@ -59,7 +66,12 @@ namespace codex_bridge
                     foreach (var item in items)
                     {
                         var title = string.IsNullOrWhiteSpace(item.Title) ? "未命名会话" : item.Title;
-                        RecentSessions.Add(new SessionSummaryViewModel(item.Id, title, item.CreatedAt, item.Cwd, item.Originator, item.CliVersion));
+                        var vm = new SessionSummaryViewModel(item.Id, title, item.CreatedAt, item.Cwd, item.Originator, item.CliVersion)
+                        {
+                            IsHidden = App.SessionPreferences.IsHidden(item.Id),
+                            IsPinned = App.SessionPreferences.IsPinned(item.Id),
+                        };
+                        RecentSessions.Add(vm);
                     }
 
                     // Check if there are more sessions to load
@@ -98,18 +110,25 @@ namespace codex_bridge
                 NavView.MenuItems.RemoveAt(headerIndex + 1);
             }
 
-            // Add new session items
-            foreach (var session in RecentSessions)
+            // Add new session items (pinned first, then filter hidden, sort by time)
+            var sortedSessions = RecentSessions
+                .Where(s => !s.IsHidden)
+                .OrderByDescending(s => s.IsPinned)
+                .ThenByDescending(s => s.CreatedAt)
+                .ToList();
+
+            foreach (var session in sortedSessions)
             {
                 var item = new NavigationViewItem
                 {
                     Tag = $"session:{session.Id}",
                     Content = new TextBlock
                     {
-                        Text = session.Title,
+                        Text = session.IsPinned ? $"[置顶] {session.Title}" : session.Title,
                         TextTrimming = TextTrimming.CharacterEllipsis,
                     },
                     Icon = new SymbolIcon(Symbol.Message),
+                    ContextFlyout = CreateSessionContextMenu(session),
                 };
                 ToolTipService.SetToolTip(item, session.Subtitle);
                 NavView.MenuItems.Add(item);
@@ -258,6 +277,113 @@ namespace codex_bridge
             }
 
             ContentFrame.Navigate(target);
+        }
+
+        private MenuFlyout CreateSessionContextMenu(SessionSummaryViewModel session)
+        {
+            var flyout = new MenuFlyout();
+
+            // Pin/Unpin
+            var pinItem = new MenuFlyoutItem
+            {
+                Text = session.IsPinned ? "✓ 已置顶" : "置顶",
+                Icon = new FontIcon { Glyph = "\uE718" },
+            };
+            pinItem.Click += async (s, e) => await TogglePinSessionAsync(session.Id);
+            flyout.Items.Add(pinItem);
+
+            // Hide
+            var hideItem = new MenuFlyoutItem
+            {
+                Text = "隐藏",
+                Icon = new FontIcon { Glyph = "\uED1A" },
+            };
+            hideItem.Click += async (s, e) => await HideSessionAsync(session.Id);
+            flyout.Items.Add(hideItem);
+
+            flyout.Items.Add(new MenuFlyoutSeparator());
+
+            // Delete
+            var deleteItem = new MenuFlyoutItem
+            {
+                Text = "删除...",
+                Icon = new FontIcon { Glyph = "\uE74D" },
+            };
+            deleteItem.Click += async (s, e) => await ConfirmAndDeleteSessionAsync(session.Id);
+            flyout.Items.Add(deleteItem);
+
+            return flyout;
+        }
+
+        private async Task TogglePinSessionAsync(string sessionId)
+        {
+            await App.SessionPreferences.TogglePinnedAsync(sessionId);
+            var session = FindSessionById(sessionId);
+            if (session is not null)
+            {
+                session.IsPinned = App.SessionPreferences.IsPinned(sessionId);
+            }
+            UpdateSidebarSessions();
+        }
+
+        private async Task HideSessionAsync(string sessionId)
+        {
+            await App.SessionPreferences.SetHiddenAsync(sessionId, true);
+            var session = FindSessionById(sessionId);
+            if (session is not null)
+            {
+                session.IsHidden = true;
+            }
+            UpdateSidebarSessions();
+        }
+
+        private async Task ConfirmAndDeleteSessionAsync(string sessionId)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "确定要删除这个会话吗？",
+                Content = "会话文件将被移至回收站。",
+                PrimaryButtonText = "删除",
+                CloseButtonText = "取消",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = Content.XamlRoot,
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary)
+            {
+                return;
+            }
+
+            try
+            {
+                var baseUri = App.BackendServer.HttpBaseUri;
+                if (baseUri is null)
+                {
+                    return;
+                }
+
+                var uri = new Uri(baseUri, $"api/v1/sessions/{sessionId}");
+                using var response = await _httpClient.DeleteAsync(uri, CancellationToken.None);
+                response.EnsureSuccessStatusCode();
+
+                // Remove from preferences
+                await App.SessionPreferences.RemoveSessionAsync(sessionId);
+
+                // Refresh the list
+                await RefreshRecentSessionsAsync();
+            }
+            catch (Exception ex)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "删除失败",
+                    Content = ex.Message,
+                    CloseButtonText = "确定",
+                    XamlRoot = Content.XamlRoot,
+                };
+                await errorDialog.ShowAsync();
+            }
         }
     }
 }

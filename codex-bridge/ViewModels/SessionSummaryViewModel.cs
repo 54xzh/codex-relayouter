@@ -28,6 +28,10 @@ public sealed class SessionSummaryViewModel
 
     public string? CliVersion { get; }
 
+    public bool IsHidden { get; set; }
+
+    public bool IsPinned { get; set; }
+
     public string Subtitle
     {
         get
