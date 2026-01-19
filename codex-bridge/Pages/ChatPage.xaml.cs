@@ -431,11 +431,56 @@ public sealed partial class ChatPage : Page
 
             _historyLoadedForSessionId = sessionId;
             SetSessionStatus($"会话: {sessionId}（{Messages.Count} 条消息）");
+            await ScrollMessagesToBottomAfterHistoryLoadAsync();
         }
         catch (Exception ex)
         {
             SetSessionStatus($"加载历史失败: {ex.Message}");
         }
+    }
+
+    private async Task ScrollMessagesToBottomAfterHistoryLoadAsync()
+    {
+        if (Messages.Count == 0)
+        {
+            return;
+        }
+
+        await Task.Yield();
+
+        await RunOnUiThreadAsync(() =>
+        {
+            if (Messages.Count == 0)
+            {
+                return;
+            }
+
+            MessagesListView.UpdateLayout();
+            MessagesListView.ScrollIntoView(Messages[^1]);
+        });
+    }
+
+    private Task RunOnUiThreadAsync(Action action)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+
+        if (!_dispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                action();
+                tcs.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                tcs.TrySetException(ex);
+            }
+        }))
+        {
+            tcs.TrySetException(new InvalidOperationException("无法调度到 UI 线程。"));
+        }
+
+        return tcs.Task;
     }
 
     private void ConnectionService_EnvelopeReceived(object? sender, BridgeEnvelope envelope)

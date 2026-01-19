@@ -32,6 +32,7 @@
 | 202601190157 | chat_images | 功能 | ?已完成（聊天图片上传/回放显示） | [202601190157_chat_images](2026-01/202601190157_chat_images/) |
 | 202601190234 | project_docs | 文档 | ?已完成（仓库入口文档） | [202601190234_project_docs](2026-01/202601190234_project_docs/) |
 | 202601190247 | window_init_size_center | 修复 | ?已完成（窗口初始大小/最小尺寸/居中） | [202601190247_window_init_size_center](2026-01/202601190247_window_init_size_center/) |
+| 202601191115 | chat_scroll_bottom | 修复 | ?已完成（进入会话自动定位到底部） | [202601191115_chat_scroll_bottom](2026-01/202601191115_chat_scroll_bottom/) |
 
 ---
 
@@ -63,3 +64,4 @@
 - [202601190157_chat_images](2026-01/202601190157_chat_images/) - 聊天图片：上传图片输入 + 会话回放解码显示（data URL）
 - [202601190234_project_docs](2026-01/202601190234_project_docs/) - 文档：新增仓库入口 README（简介/快速开始/索引）
 - [202601190247_window_init_size_center](2026-01/202601190247_window_init_size_center/) - WinUI：增大启动窗口初始大小，并将初始大小作为最小尺寸；启动时屏幕居中
+- [202601191115_chat_scroll_bottom](2026-01/202601191115_chat_scroll_bottom/) - 修复：进入会话后自动定位到消息列表底部（显示最新消息）
