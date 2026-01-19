@@ -49,6 +49,8 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
             _status = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusLine));
+            OnPropertyChanged(nameof(StatusBadge));
+            OnPropertyChanged(nameof(HasStatusBadge));
         }
     }
 
@@ -65,6 +67,8 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
             _exitCode = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusLine));
+            OnPropertyChanged(nameof(StatusBadge));
+            OnPropertyChanged(nameof(HasStatusBadge));
         }
     }
 
@@ -85,6 +89,35 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
     }
 
     public bool HasOutput => !string.IsNullOrWhiteSpace(Output);
+
+    public bool HasStatusBadge => !string.IsNullOrWhiteSpace(StatusBadge);
+
+    public string? StatusBadge
+    {
+        get
+        {
+            var status = string.IsNullOrWhiteSpace(Status) ? "completed" : Status.Trim();
+            var exitCode = ExitCode;
+
+            if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase)
+                && (!exitCode.HasValue || exitCode.Value == 0))
+            {
+                return null;
+            }
+
+            if (!exitCode.HasValue)
+            {
+                return status;
+            }
+
+            if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"exitCode={exitCode.Value}";
+            }
+
+            return $"{status} exitCode={exitCode.Value}".Trim();
+        }
+    }
 
     public string StatusLine
     {

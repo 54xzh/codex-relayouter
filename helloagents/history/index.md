@@ -33,6 +33,11 @@
 | 202601190234 | project_docs | 文档 | ?已完成（仓库入口文档） | [202601190234_project_docs](2026-01/202601190234_project_docs/) |
 | 202601190247 | window_init_size_center | 修复 | ?已完成（窗口初始大小/最小尺寸/居中） | [202601190247_window_init_size_center](2026-01/202601190247_window_init_size_center/) |
 | 202601191115 | chat_scroll_bottom | 修复 | ?已完成（进入会话自动定位到底部） | [202601191115_chat_scroll_bottom](2026-01/202601191115_chat_scroll_bottom/) |
+| 202601191127 | exec_command_output_expander | 修复 | ?已完成（执行命令输出折叠样式） | [202601191127_exec_command_output_expander](2026-01/202601191127_exec_command_output_expander/) |
+| 202601191135 | trace_style_sans_and_status_fold | 修复 | ?已完成（Trace 字体/状态标签折叠） | [202601191135_trace_style_sans_and_status_fold](2026-01/202601191135_trace_style_sans_and_status_fold/) |
+| 202601191159 | trace_no_gray_more_height | 修复 | ?已完成（Trace 去浅灰背景/提升高度） | [202601191159_trace_no_gray_more_height](2026-01/202601191159_trace_no_gray_more_height/) |
+| 202601191206 | trace_command_no_double_and_3lines | 修复 | ?已完成（命令条目无双层/三行截断） | [202601191206_trace_command_no_double_and_3lines](2026-01/202601191206_trace_command_no_double_and_3lines/) |
+| 202601191212 | trace_command_reasoning_visual_align | 修复 | ?已完成（命令/思考字体与间距对齐） | [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) |
 
 ---
 
@@ -65,3 +70,8 @@
 - [202601190234_project_docs](2026-01/202601190234_project_docs/) - 文档：新增仓库入口 README（简介/快速开始/索引）
 - [202601190247_window_init_size_center](2026-01/202601190247_window_init_size_center/) - WinUI：增大启动窗口初始大小，并将初始大小作为最小尺寸；启动时屏幕居中
 - [202601191115_chat_scroll_bottom](2026-01/202601191115_chat_scroll_bottom/) - 修复：进入会话后自动定位到消息列表底部（显示最新消息）
+- [202601191127_exec_command_output_expander](2026-01/202601191127_exec_command_output_expander/) - WinUI：执行命令输出改为命令块可展开（移除“输出”折叠）
+- [202601191135_trace_style_sans_and_status_fold](2026-01/202601191135_trace_style_sans_and_status_fold/) - WinUI：Trace 命令/输出统一非衬线字体；成功状态标签默认折叠
+- [202601191159_trace_no_gray_more_height](2026-01/202601191159_trace_no_gray_more_height/) - WinUI：Trace 容器去浅灰背景（透明 + 描边）；多行内容更舒适高度
+- [202601191206_trace_command_no_double_and_3lines](2026-01/202601191206_trace_command_no_double_and_3lines/) - WinUI：命令条目与思考摘要一致以避免双层容器；命令最多三行截断
+- [202601191212_trace_command_reasoning_visual_align](2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐

@@ -28,7 +28,7 @@ Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
 Chat 页工作区按钮的描述文本显示 `cwd` 的目录名（basename）；点击后菜单提供“在资源管理器中打开”、“重新选择（FolderPicker）”，并展示最近使用的 5 条 `cwd`（完整路径）以便快速切换。
 当工作区不在 Git 仓库目录内导致旧链路拒绝运行时，可在 Chat 页启用“跳过 Git 检查”（默认开启，保留兼容）。
-Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示，最终回答显示在 trace 之后（可展开查看）。
+Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命令，并按时间顺序展示，最终回答显示在 trace 之后（可展开查看）；执行命令条目点击命令块即可展开查看输出（不再单独显示“输出”二级折叠）；Trace 内命令/输出统一使用非衬线字体，且成功状态默认折叠（不显示 `completed` / `exitCode=0`）；命令条目视觉与思考摘要保持一致（标题字体与上下内边距一致，避免双层效果），命令文本最多显示三行，超出截断为省略号；多行内容使用更大的上下留白与固定行高提升可读性。
 
 #### 场景: 一键启动（自动拉起后端）
 启动 WinUI 时自动拉起本机 Bridge Server（sidecar），随机端口并进行健康检查；Chat 页默认自动连接，无需用户手动填写 WS 地址。
@@ -70,3 +70,8 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601181735_app_server_approvals](../../history/2026-01/202601181735_app_server_approvals/) - WinUI：审批弹窗 + delta 流式渲染（assistant/命令/思考摘要）
 - [202601190157_chat_images](../../history/2026-01/202601190157_chat_images/) - WinUI：Chat 页图片选择/预览/发送 + 会话回放图片解码显示
 - [202601190247_window_init_size_center](../../history/2026-01/202601190247_window_init_size_center/) - WinUI：增大启动窗口初始大小，并将初始大小作为最小尺寸；启动时屏幕居中
+- [202601191127_exec_command_output_expander](../../history/2026-01/202601191127_exec_command_output_expander/) - WinUI：执行命令输出改为命令块可展开（移除“输出”折叠）
+- [202601191135_trace_style_sans_and_status_fold](../../history/2026-01/202601191135_trace_style_sans_and_status_fold/) - WinUI：Trace 命令/输出统一非衬线字体；成功状态标签默认折叠
+- [202601191159_trace_no_gray_more_height](../../history/2026-01/202601191159_trace_no_gray_more_height/) - WinUI：Trace 容器去浅灰背景（透明 + 描边）；多行内容更舒适高度
+- [202601191206_trace_command_no_double_and_3lines](../../history/2026-01/202601191206_trace_command_no_double_and_3lines/) - WinUI：命令条目与思考摘要一致以避免双层容器；命令最多三行截断
+- [202601191212_trace_command_reasoning_visual_align](../../history/2026-01/202601191212_trace_command_reasoning_visual_align/) - WinUI：命令执行与思考摘要条目字体与上下边距对齐

@@ -129,40 +129,69 @@
                                             <DataTemplate x:DataType="vm:TraceEntryViewModel">
                                                 <StackPanel Spacing="6" Margin="0,0,0,8">
                                                     <!-- 命令类型 -->
-                                                    <StackPanel
-                                                        Spacing="2"
-                                                        Visibility="{x:Bind IsCommand, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                        <Border
-                                                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                            CornerRadius="4"
-                                                            Padding="8,6">
-                                                            <TextBlock FontFamily="Cascadia Code,Consolas,monospace" Text="{x:Bind Command, Mode=OneWay}" TextWrapping="Wrap" />
-                                                        </Border>
-                                                        <TextBlock Opacity="0.6" Text="{x:Bind StatusLine, Mode=OneWay}" FontSize="12" />
-                                                        <Expander
-                                                            Header="输出"
-                                                            IsExpanded="False"
-                                                            Visibility="{x:Bind HasOutput, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                            HorizontalAlignment="Stretch">
-                                                            <ScrollViewer MaxHeight="220">
-                                                                <Border
-                                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                                    CornerRadius="4"
-                                                                    Padding="8">
-                                                                    <TextBlock FontFamily="Cascadia Code,Consolas,monospace" Text="{x:Bind Output, Mode=OneWay}" TextWrapping="Wrap" />
-                                                                </Border>
-                                                            </ScrollViewer>
-                                                        </Expander>
-                                                    </StackPanel>
+                                                    <Expander
+                                                        IsExpanded="False"
+                                                        Visibility="{x:Bind IsCommand, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch">
+                                                        <Expander.Header>
+                                                            <StackPanel Spacing="8" Margin="0,10,0,10">
+                                                                <TextBlock
+                                                                    FontFamily="{StaticResource ChineseUIFont}"
+                                                                    Text="{x:Bind Command, Mode=OneWay}"
+                                                                    TextWrapping="Wrap"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    LineHeight="22"
+                                                                    LineStackingStrategy="BlockLineHeight"
+                                                                    MaxLines="3" />
+                                                                <TextBlock
+                                                                    FontFamily="{StaticResource ChineseUIFont}"
+                                                                    FontSize="12"
+                                                                    Opacity="0.7"
+                                                                    LineHeight="18"
+                                                                    LineStackingStrategy="BlockLineHeight"
+                                                                    Text="{x:Bind StatusBadge, Mode=OneWay}"
+                                                                    Visibility="{x:Bind HasStatusBadge, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                            </StackPanel>
+                                                        </Expander.Header>
+
+                                                        <ScrollViewer
+                                                            MaxHeight="360"
+                                                            Margin="0,14,0,0"
+                                                            Visibility="{x:Bind HasOutput, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock
+                                                                FontFamily="{StaticResource ChineseUIFont}"
+                                                                Margin="0,8,0,0"
+                                                                Text="{x:Bind Output, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                LineHeight="22"
+                                                                LineStackingStrategy="BlockLineHeight" />
+                                                        </ScrollViewer>
+                                                    </Expander>
 
                                                     <!-- 推理类型 -->
                                                     <Expander
-                                                        Header="{x:Bind Title, Mode=OneWay}"
                                                         IsExpanded="False"
                                                         Visibility="{x:Bind IsReasoning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                        HorizontalAlignment="Stretch">
-                                                        <ScrollViewer MaxHeight="260">
-                                                            <TextBlock Text="{x:Bind Text, Mode=OneWay}" TextWrapping="Wrap" />
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch">
+                                                        <Expander.Header>
+                                                            <TextBlock
+                                                                FontFamily="{StaticResource ChineseUIFont}"
+                                                                Margin="0,10,0,10"
+                                                                Text="{x:Bind Title, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                LineHeight="22"
+                                                                LineStackingStrategy="BlockLineHeight" />
+                                                        </Expander.Header>
+                                                        <ScrollViewer MaxHeight="260" Margin="0,14,0,0">
+                                                            <TextBlock
+                                                                FontFamily="{StaticResource ChineseUIFont}"
+                                                                Margin="0,8,0,0"
+                                                                Text="{x:Bind Text, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                LineHeight="22"
+                                                                LineStackingStrategy="BlockLineHeight" />
                                                         </ScrollViewer>
                                                     </Expander>
                                                 </StackPanel>
