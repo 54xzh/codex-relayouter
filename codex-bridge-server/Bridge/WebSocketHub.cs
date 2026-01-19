@@ -215,7 +215,8 @@ public sealed class WebSocketHub
 
                 if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase))
                 {
-                    await BroadcastAsync(CreateEvent("run.failed", new { runId, message = "codex 执行失败" }), CancellationToken.None);
+                    var message = TryGetTurnFailureMessage(result.Turn) ?? "codex 执行失败";
+                    await BroadcastAsync(CreateEvent("run.failed", new { runId, message }), CancellationToken.None);
                     return;
                 }
 
@@ -562,6 +563,34 @@ public sealed class WebSocketHub
 
         value = property.GetString();
         return true;
+    }
+
+    private static string? TryGetTurnFailureMessage(JsonElement turn)
+    {
+        if (turn.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!turn.TryGetProperty("error", out var error) || error.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (error.ValueKind == JsonValueKind.String)
+        {
+            var text = error.GetString();
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+
+        if (error.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return TryGetString(error, "message", out var message) && !string.IsNullOrWhiteSpace(message)
+            ? message.Trim()
+            : null;
     }
 
     private static string[]? ParseImageDataUrls(JsonElement data)

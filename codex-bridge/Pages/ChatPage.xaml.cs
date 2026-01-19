@@ -22,6 +22,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
@@ -1131,6 +1132,18 @@ public sealed partial class ChatPage : Page
         }
 
         var meta = trimmed.Substring(0, commaIndex);
+        var semicolonIndex = meta.IndexOf(';');
+        if (semicolonIndex < 0)
+        {
+            return false;
+        }
+
+        var mimeType = meta.Substring("data:".Length, semicolonIndex - "data:".Length);
+        if (!IsSupportedImageMimeType(mimeType))
+        {
+            return false;
+        }
+
         if (!meta.Contains(";base64", StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -1149,6 +1162,16 @@ public sealed partial class ChatPage : Page
 
         dataUrl = trimmed;
         return true;
+    }
+
+    private static bool IsSupportedImageMimeType(string? mimeType)
+    {
+        if (string.IsNullOrWhiteSpace(mimeType))
+        {
+            return false;
+        }
+
+        return mimeType.Trim().ToLowerInvariant() is "image/png" or "image/jpeg" or "image/webp" or "image/gif";
     }
 
     private static long EstimateDecodedBytesFromBase64(string base64)
@@ -1181,13 +1204,17 @@ public sealed partial class ChatPage : Page
         }
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext == ".bmp")
+        {
+            return TryTranscodeFileToPngDataUrlAsync(path);
+        }
+
         var mimeType = ext switch
         {
             ".png" => "image/png",
             ".jpg" => "image/jpeg",
             ".jpeg" => "image/jpeg",
             ".gif" => "image/gif",
-            ".bmp" => "image/bmp",
             ".webp" => "image/webp",
             _ => null,
         };
@@ -1219,98 +1246,8 @@ public sealed partial class ChatPage : Page
 
         using (stream)
         {
-            string? mimeType = null;
-            try
-            {
-                var contentType = stream.ContentType;
-                if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                {
-                    mimeType = contentType;
-                }
-            }
-            catch
-            {
-                mimeType = null;
-            }
-
-            using var input = stream.AsStreamForRead();
-            using var memory = new MemoryStream();
-            try
-            {
-                await input.CopyToAsync(memory);
-            }
-            catch
-            {
-                return null;
-            }
-
-            var bytes = memory.ToArray();
-            if (bytes.Length == 0 || bytes.Length > MaxImageBytes)
-            {
-                return null;
-            }
-
-            mimeType ??= TryGuessImageMimeType(bytes);
-            if (mimeType is null)
-            {
-                return null;
-            }
-
-            var base64 = Convert.ToBase64String(bytes);
-            return $"data:{mimeType};base64,{base64}";
+            return await TryTranscodeToPngDataUrlAsync(stream);
         }
-    }
-
-    private static string? TryGuessImageMimeType(byte[] bytes)
-    {
-        if (bytes.Length >= 8 &&
-            bytes[0] == 0x89 &&
-            bytes[1] == 0x50 &&
-            bytes[2] == 0x4E &&
-            bytes[3] == 0x47 &&
-            bytes[4] == 0x0D &&
-            bytes[5] == 0x0A &&
-            bytes[6] == 0x1A &&
-            bytes[7] == 0x0A)
-        {
-            return "image/png";
-        }
-
-        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
-        {
-            return "image/jpeg";
-        }
-
-        if (bytes.Length >= 6 &&
-            bytes[0] == (byte)'G' &&
-            bytes[1] == (byte)'I' &&
-            bytes[2] == (byte)'F' &&
-            bytes[3] == (byte)'8' &&
-            (bytes[4] == (byte)'7' || bytes[4] == (byte)'9') &&
-            bytes[5] == (byte)'a')
-        {
-            return "image/gif";
-        }
-
-        if (bytes.Length >= 2 && bytes[0] == (byte)'B' && bytes[1] == (byte)'M')
-        {
-            return "image/bmp";
-        }
-
-        if (bytes.Length >= 12 &&
-            bytes[0] == (byte)'R' &&
-            bytes[1] == (byte)'I' &&
-            bytes[2] == (byte)'F' &&
-            bytes[3] == (byte)'F' &&
-            bytes[8] == (byte)'W' &&
-            bytes[9] == (byte)'E' &&
-            bytes[10] == (byte)'B' &&
-            bytes[11] == (byte)'P')
-        {
-            return "image/webp";
-        }
-
-        return null;
     }
 
     private static async Task<string?> ReadAndEncodeAsync(string path, string mimeType)
@@ -1332,6 +1269,68 @@ public sealed partial class ChatPage : Page
 
         var base64 = Convert.ToBase64String(bytes);
         return $"data:{mimeType};base64,{base64}";
+    }
+
+    private static async Task<string?> TryTranscodeFileToPngDataUrlAsync(string path)
+    {
+        StorageFile file;
+        try
+        {
+            file = await StorageFile.GetFileFromPathAsync(path);
+        }
+        catch
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = await file.OpenReadAsync();
+            return await TryTranscodeToPngDataUrlAsync(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> TryTranscodeToPngDataUrlAsync(IRandomAccessStream inputStream)
+    {
+        SoftwareBitmap? softwareBitmap = null;
+
+        try
+        {
+            inputStream.Seek(0);
+            var decoder = await BitmapDecoder.CreateAsync(inputStream);
+            softwareBitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+
+            using var outputStream = new InMemoryRandomAccessStream();
+            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outputStream);
+            encoder.SetSoftwareBitmap(softwareBitmap);
+            await encoder.FlushAsync();
+
+            outputStream.Seek(0);
+            using var output = outputStream.AsStreamForRead();
+            using var memory = new MemoryStream();
+            await output.CopyToAsync(memory);
+
+            var bytes = memory.ToArray();
+            if (bytes.Length == 0 || bytes.Length > MaxImageBytes)
+            {
+                return null;
+            }
+
+            var base64 = Convert.ToBase64String(bytes);
+            return $"data:image/png;base64,{base64}";
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            softwareBitmap?.Dispose();
+        }
     }
 
     private static string? GetOptionalString(JsonElement data, string propertyName) =>
@@ -1471,6 +1470,10 @@ public sealed partial class ChatPage : Page
             if (!addedAny && PendingImages.Count >= MaxPendingImages)
             {
                 SetSessionStatus($"最多添加 {MaxPendingImages} 张图片");
+            }
+            else if (!addedAny)
+            {
+                SetSessionStatus("未检测到可用图片（可能格式不支持或图片过大）");
             }
 
             UpdatePendingImagesUi();

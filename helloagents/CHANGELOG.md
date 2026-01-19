@@ -48,3 +48,4 @@
 - 修复 Chat 页显示 Codex `--json` 控制事件（thread/turn/...）：后端解析并仅广播真实助手消息
 - 修复 Chat 页“执行的命令/思考摘要”区块不显示：为 `x:Bind` 增加 `Mode=OneWay` 以支持运行时更新，并在运行开始时提示“思考中…”
 - 修复 workspace-write 模式无法请求权限：修正 app-server(JSON-RPC) 消息分类逻辑，避免将带 `method` 的 `requestApproval` server request 误判为 response 丢弃，从而确保可正常转发 `approval.requested` 并回传 `approval.respond` 的用户决定
+- 修复图片发送失败提示不明确/部分格式不兼容：WinUI 将剪贴板/BMP 图片转为 PNG（避免 `image/bmp` 导致失败），并在 `turn.status=failed` 时透出 `turn.error.message`

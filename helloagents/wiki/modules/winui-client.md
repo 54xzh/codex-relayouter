@@ -25,6 +25,7 @@
 以增量事件实时渲染回复，支持取消与重试。
 Chat 页支持图片输入：可选择本地图片并随消息发送；消息列表会展示图片缩略图，且在会话历史回放时可解码显示 session 中的 base64 图片（data URL）。
 Chat 输入框支持粘贴图片：当剪贴板包含图片（Bitmap/文件/`data:image/...;base64,...`）时，粘贴会自动将图片加入待发送预览列表。
+兼容性：为避免 `image/bmp` 导致 Codex 拒绝，剪贴板图片与 BMP 文件会自动转为 PNG 再发送。
 快捷键：Enter 发送；Shift+Enter 换行。
 Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
 其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
@@ -81,3 +82,4 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601191252_trace_autoscroll_bottom](../../history/2026-01/202601191252_trace_autoscroll_bottom/) - WinUI：Trace/输出增量更新时，列表在底部自动跟随滚动
 - [202601191305_trace_auto_collapse_fix](../../history/2026-01/202601191305_trace_auto_collapse_fix/) - WinUI：修复输出正文后 Trace 未自动折叠
 - [202601191324_chat_paste_images_shortcuts](../../history/2026-01/202601191324_chat_paste_images_shortcuts/) - WinUI：Chat 输入框粘贴图片 + Enter 发送/Shift+Enter 换行
+- [202601191827_chat_image_failure_fix](../../history/2026-01/202601191827_chat_image_failure_fix/) - 修复：BMP/剪贴板图片发送导致 codex 执行失败 + 失败原因透出
