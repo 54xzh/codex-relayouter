@@ -46,6 +46,13 @@
 `chat.send` 支持携带 `images`（data URL 数组），用于将图片作为输入发送给模型；服务端会将其映射到 `codex app-server` 的 `turn/start.input`（`type=image` 且 `url=dataUrl`）。
 历史回放接口 `/api/v1/sessions/{sessionId}/messages` 会解析 `input_image/output_image` 并返回 `images` 字段，前端可解码并渲染。
 
+#### 场景: 设备配对与在线状态（连接）
+为支持局域网 Android 设备接入，服务端新增“配对邀请码 + 本机确认”的连接流程，并补充设备在线状态事件：
+- event `device.pairing.requested`：远程设备发起配对后，本机客户端收到请求并弹窗确认
+  - `requestId` / `deviceName` / `platform` / `deviceModel` / `appVersion` / `clientIp` / `expiresAt`
+- event `device.presence.updated`：设备 WebSocket 连接/断开导致在线状态变化（用于本机“连接”页展示）
+  - `deviceId` / `online` / `lastSeenAt`
+
 ## 变更历史
 - [202601172220_codex_gui_shell](../../history/2026-01/202601172220_codex_gui_shell/) - WS 协议 Envelope 与事件命名（MVP 骨架）
 - [202601172341_winui_ws_chat](../../history/2026-01/202601172341_winui_ws_chat/) - 增补 `chat.message` 与 `chat.send(model/sandbox)` 说明
@@ -55,3 +62,4 @@
 - [202601181348_trace_thinking](../../history/2026-01/202601181348_trace_thinking/) - 增补 `run.command` / `run.reasoning`（执行命令/思考摘要）
 - [202601190157_chat_images](../../history/2026-01/202601190157_chat_images/) - 增补 `chat.send/images` 与会话回放 `images`（data URL）
 - [202601211742_turn_plan_todo](../../history/2026-01/202601211742_turn_plan_todo/) - 增补 `run.plan.updated`（turn plan）与会话计划回填
+- [202601220035_connections_pairing](../../history/2026-01/202601220035_connections_pairing/) - 增补 `device.pairing.requested` / `device.presence.updated` 与设备配对流程

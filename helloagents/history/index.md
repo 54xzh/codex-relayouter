@@ -61,6 +61,7 @@
 | 202601210129 | inline_code_path_icons | 功能 | ✅已完成（行内文件路径图标） | [202601210129_inline_code_path_icons](2026-01/202601210129_inline_code_path_icons/) |
 | 202601211742 | turn_plan_todo | 功能 | ✅已完成（待办计划/计划回填） | [202601211742_turn_plan_todo](2026-01/202601211742_turn_plan_todo/) |
 | 202601211848 | fix_inline_code_path_click | 修复 | ✅已完成（行内代码路径误判与重复打开） | [202601211848_fix_inline_code_path_click](2026-01/202601211848_fix_inline_code_path_click/) |
+| 202601220035 | connections_pairing | 功能 | ✅已完成（连接/配对/设备管理/多端同步） | [202601220035_connections_pairing](2026-01/202601220035_connections_pairing/) |
 
 ---
 
@@ -121,3 +122,4 @@
 - [202601210129_inline_code_path_icons](2026-01/202601210129_inline_code_path_icons/) - WinUI：行内代码文件路径显示类型图标
 - [202601211742_turn_plan_todo](2026-01/202601211742_turn_plan_todo/) - 待办计划：`run.plan.updated` + `GET /api/v1/sessions/{sessionId}/plan` + WinUI 展示
 - [202601211848_fix_inline_code_path_click](2026-01/202601211848_fix_inline_code_path_click/) - 修复：行内代码点击重复打开/HTTP 路由误判
+- [202601220035_connections_pairing](2026-01/202601220035_connections_pairing/) - 功能：连接（局域网配对/设备列表/撤销/Android 同步）

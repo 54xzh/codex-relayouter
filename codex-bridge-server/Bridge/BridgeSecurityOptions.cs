@@ -1,4 +1,4 @@
-// Bridge 安全配置：默认仅本机回环访问；开启远程后使用 Bearer Token 鉴权。
+// Bridge 安全配置：默认仅本机回环访问；开启远程后支持设备令牌（可逐设备撤销）。
 namespace codex_bridge_server.Bridge;
 
 public sealed class BridgeSecurityOptions
@@ -7,4 +7,3 @@ public sealed class BridgeSecurityOptions
 
     public string? BearerToken { get; set; }
 }
-

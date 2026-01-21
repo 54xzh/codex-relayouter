@@ -8,7 +8,11 @@ Bridge Server 对外提供两类接口：
 
 ## 认证方式
 
-默认仅允许 `127.0.0.1` 访问；开启远程访问时使用 Bearer Token（本地生成与保存，前端首次配对输入）。
+默认仅允许 `127.0.0.1` 访问；开启局域网访问后：
+- 远程设备需先配对获取 **设备令牌**（deviceToken），并在 HTTP/WS 请求中携带 `Authorization: Bearer <deviceToken>`。
+- 管理类接口（设备列表/撤销、会话创建/删除等）建议保持仅回环可用。
+
+兼容性：如显式配置 `Bridge:Security:BearerToken`，服务端仍会将其作为“全局令牌”接受（用于调试/旧客户端），但推荐使用设备令牌以支持逐设备撤销。
 
 ---
 
@@ -44,6 +48,7 @@ Bridge Server 对外提供两类接口：
 **描述:** 创建会话（已实现）
 
 **说明（当前实现）:**
+- 权限：仅回环可用（避免远程任意 cwd 写入/创建会话）
 - 写入：在 `~/.codex/sessions/YYYY/MM/DD/` 下创建最小 `session_meta` JSONL 文件
 - 请求体（必填）：`{ "cwd": "C:\\path" }`（需为存在且可访问的目录）
 - 兼容性：会写入 `session_meta.payload.cli_version`（Codex resume 必填）
@@ -101,6 +106,53 @@ Bridge Server 对外提供两类接口：
 
 ---
 
+### Connections
+
+#### [POST] /api/v1/connections/pairings
+**描述:** 创建短时配对邀请码（仅回环可用）
+
+**响应:**
+```json
+{ "pairingCode": "...", "expiresAt": "..." }
+```
+
+#### [POST] /api/v1/connections/pairings/claim
+**描述:** 设备扫码/输入邀请码后发起配对请求（远程允许；不需要 Bearer）
+
+**请求:**
+```json
+{ "pairingCode": "...", "deviceName": "...", "platform": "android", "deviceModel": "...", "appVersion": "..." }
+```
+
+**响应:**
+```json
+{ "requestId": "...", "pollAfterMs": 800, "expiresAt": "..." }
+```
+
+#### [GET] /api/v1/connections/pairings/{requestId}
+**描述:** 轮询配对结果（远程允许；不需要 Bearer）
+
+**响应:**
+```json
+{ "status": "pending|approved|declined|expired|remoteDisabled", "deviceId": "...", "deviceToken": "...", "tokenDelivered": false }
+```
+
+#### [POST] /api/v1/connections/pairings/{requestId}/respond
+**描述:** 本机确认/拒绝配对请求（仅回环可用）
+
+**请求:**
+```json
+{ "decision": "approve|decline" }
+```
+
+#### [GET] /api/v1/connections/devices
+**描述:** 获取已配对设备列表（仅回环可用）
+
+#### [DELETE] /api/v1/connections/devices/{deviceId}
+**描述:** 撤销设备（仅回环可用；撤销后立即断开并失效）
+
+---
+
 ## WebSocket
 
 #### [WS] /ws
@@ -120,7 +172,9 @@ Bridge Server 对外提供两类接口：
 
 **鉴权说明（当前实现）:**
 - 默认仅允许 `127.0.0.1` 回环访问（不需要令牌）
-- 当 `Bridge:Security:RemoteEnabled=true` 时，必须带 `Authorization: Bearer <token>`
+- 当 `Bridge:Security:RemoteEnabled=true` 时：
+  - 远程设备需带 `Authorization: Bearer <deviceToken>`
+  - 本机回环依然无需令牌
 
 **已实现消息（MVP 骨架）:**
 - command `chat.send`：`{ "prompt": "string(optional)", "images": ["data:image/...;base64,..."] (optional), "sessionId": "uuid(optional)", "workingDirectory": "C:\\path(optional)", "model": "o3(optional)", "sandbox": "workspace-write(optional)", "approvalPolicy": "on-request(optional)", "effort": "high(optional)", "skipGitRepoCheck": false }`

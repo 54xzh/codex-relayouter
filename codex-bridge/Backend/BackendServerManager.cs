@@ -16,10 +16,23 @@ public sealed class BackendServerManager : IAsyncDisposable
     private Task? _startTask;
     private CancellationTokenSource? _lifetimeCts;
     private Process? _process;
+    private bool _lanEnabled;
+    private int? _port;
 
     public Uri? HttpBaseUri { get; private set; }
 
     public Uri? WebSocketUri { get; private set; }
+
+    public bool IsLanEnabled
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lanEnabled;
+            }
+        }
+    }
 
     public Task EnsureStartedAsync()
     {
@@ -30,6 +43,24 @@ public sealed class BackendServerManager : IAsyncDisposable
         }
     }
 
+    public async Task SetLanEnabledAsync(bool enabled)
+    {
+        bool shouldRestart;
+        lock (_gate)
+        {
+            shouldRestart = _lanEnabled != enabled;
+            _lanEnabled = enabled;
+        }
+
+        if (!shouldRestart)
+        {
+            return;
+        }
+
+        await StopAsync();
+        await EnsureStartedAsync();
+    }
+
     private async Task EnsureStartedCoreAsync()
     {
         var lifetimeCts = new CancellationTokenSource();
@@ -38,37 +69,52 @@ public sealed class BackendServerManager : IAsyncDisposable
             _lifetimeCts = lifetimeCts;
         }
 
-        var port = GetFreeTcpPort();
+        var port = _port ??= GetFreeTcpPort();
         HttpBaseUri = new Uri($"http://127.0.0.1:{port}/");
         WebSocketUri = new Uri($"ws://127.0.0.1:{port}/ws");
 
-        var exePath = LocateServerExecutable();
-        var serverDir = Path.GetDirectoryName(exePath) ?? AppContext.BaseDirectory;
-
-        var startInfo = new ProcessStartInfo
+        try
         {
-            FileName = exePath,
-            Arguments = $"--urls http://127.0.0.1:{port}",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = serverDir,
-        };
-        startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Production";
+            var exePath = LocateServerExecutable();
+            var serverDir = Path.GetDirectoryName(exePath) ?? AppContext.BaseDirectory;
 
-        var process = new Process
-        {
-            StartInfo = startInfo,
-            EnableRaisingEvents = true,
-        };
+            var listenHost = IsLanEnabled ? "0.0.0.0" : "127.0.0.1";
 
-        process.Start();
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = $"--urls http://{listenHost}:{port} --Bridge:Security:RemoteEnabled={IsLanEnabled.ToString().ToLowerInvariant()}",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = serverDir,
+            };
+            startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Production";
 
-        lock (_gate)
-        {
-            _process = process;
+            var process = new Process
+            {
+                StartInfo = startInfo,
+                EnableRaisingEvents = true,
+            };
+
+            process.Start();
+
+            lock (_gate)
+            {
+                _process = process;
+            }
+
+            await WaitForHealthyAsync(HttpBaseUri, process, lifetimeCts.Token);
         }
+        catch
+        {
+            lock (_gate)
+            {
+                _startTask = null;
+                _port = null;
+            }
 
-        await WaitForHealthyAsync(HttpBaseUri, process, lifetimeCts.Token);
+            throw;
+        }
     }
 
     private static string LocateServerExecutable()

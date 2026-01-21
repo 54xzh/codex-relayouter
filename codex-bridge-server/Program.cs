@@ -13,6 +13,9 @@ builder.Services.AddOptions<codex_bridge_server.Bridge.BridgeSecurityOptions>()
     .Bind(builder.Configuration.GetSection("Bridge:Security"));
 builder.Services.AddOptions<codex_bridge_server.Bridge.CodexOptions>()
     .Bind(builder.Configuration.GetSection("Bridge:Codex"));
+builder.Services.AddSingleton<codex_bridge_server.Bridge.PairedDeviceStore>();
+builder.Services.AddSingleton<codex_bridge_server.Bridge.DevicePairingService>();
+builder.Services.AddSingleton<codex_bridge_server.Bridge.DevicePresenceTracker>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.BridgeRequestAuthorizer>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.CodexCliInfo>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.CodexRunner>();

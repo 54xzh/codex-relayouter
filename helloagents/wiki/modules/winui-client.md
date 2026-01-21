@@ -53,6 +53,13 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 
 #### 场景: 设置页（连接与高级选项）
 设置页用于编辑连接与运行参数（WS 地址、Token、WorkingDirectory、Sandbox/ApprovalPolicy/Effort 等）。
+
+#### 场景: 连接页（局域网配对与设备管理）
+在侧边栏底部提供“连接”入口，用于管理局域网设备：
+- 可开启/关闭“允许局域网连接”（开启/关闭会重启后端以切换监听地址，并自动断连/重连 WS）
+- 生成配对二维码与 `pairingCode`（二维码内容包含 baseUrl + pairingCode；设备端扫码/输入后仍需本机确认）
+- 展示已配对设备列表（在线/离线、最近活动），并支持逐设备撤销（撤销后立即断开并失效）
+- 当远程设备发起配对请求时，会弹出确认对话框（允许/拒绝）
 注意：页面初始化期间会触发控件的 Changed 事件，需要在 UI 初始化完成后再写回 ConnectionService，避免空引用导致崩溃。
 补充：设置页修改 `Model` / `Effort` 会与 `~/.codex/config.toml` 同步（写回为 best-effort）。
 
@@ -110,3 +117,4 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601210008_markdown_inline_code_list_offset_fix](../../history/2026-01/202601210008_markdown_inline_code_list_offset_fix/) - 修复：Markdown 无序列表行内代码垂直对齐偏移
 - [202601211848_fix_inline_code_path_click](../../history/2026-01/202601211848_fix_inline_code_path_click/) - 修复：行内代码路径误判与重复打开
 - [202601211742_turn_plan_todo](../../history/2026-01/202601211742_turn_plan_todo/) - WinUI：Chat 页新增“待办/计划”面板（实时 plan + 会话回填）
+- [202601220035_connections_pairing](../../history/2026-01/202601220035_connections_pairing/) - WinUI：连接页（局域网配对/设备列表/撤销/确认弹窗）

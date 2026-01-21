@@ -11,10 +11,11 @@ public sealed class WebSocketHub
 {
     private const int MaxInputImages = 4;
 
-    private readonly ConcurrentDictionary<string, WebSocket> _clients = new();
+    private readonly ConcurrentDictionary<string, ClientConnection> _clients = new();
     private readonly BridgeRequestAuthorizer _authorizer;
     private readonly CodexAppServerRunner _appServerRunner;
     private readonly CodexSessionStore _sessionStore;
+    private readonly DevicePresenceTracker _presenceTracker;
     private readonly ILogger<WebSocketHub> _logger;
 
     private CancellationTokenSource? _currentRunCts;
@@ -27,11 +28,13 @@ public sealed class WebSocketHub
         BridgeRequestAuthorizer authorizer,
         CodexAppServerRunner appServerRunner,
         CodexSessionStore sessionStore,
+        DevicePresenceTracker presenceTracker,
         ILogger<WebSocketHub> logger)
     {
         _authorizer = authorizer;
         _appServerRunner = appServerRunner;
         _sessionStore = sessionStore;
+        _presenceTracker = presenceTracker;
         _logger = logger;
     }
 
@@ -43,7 +46,8 @@ public sealed class WebSocketHub
             return;
         }
 
-        if (!_authorizer.IsAuthorized(context))
+        var auth = _authorizer.Authorize(context);
+        if (!auth.IsAuthorized)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
@@ -52,18 +56,84 @@ public sealed class WebSocketHub
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
         var clientId = Guid.NewGuid().ToString("N");
 
-        _clients[clientId] = webSocket;
+        _clients[clientId] = new ClientConnection(webSocket, auth.IsLoopback, auth.DeviceId);
+        _presenceTracker.TrackClient(clientId, auth.DeviceId);
         _logger.LogInformation("WebSocket 已连接: {ClientId}", clientId);
 
         try
         {
             await SendAsync(webSocket, CreateEvent("bridge.connected", new { clientId }), context.RequestAborted);
+            if (!string.IsNullOrWhiteSpace(auth.DeviceId))
+            {
+                await BroadcastToLoopbackAsync(
+                    CreateEvent("device.presence.updated", new { deviceId = auth.DeviceId, online = true, lastSeenAt = DateTimeOffset.UtcNow }),
+                    context.RequestAborted);
+            }
             await ReceiveLoopAsync(clientId, webSocket, context.RequestAborted);
         }
         finally
         {
-            _clients.TryRemove(clientId, out _);
+            if (_clients.TryRemove(clientId, out var removed))
+            {
+                _presenceTracker.UntrackClient(clientId);
+
+                if (!string.IsNullOrWhiteSpace(removed.DeviceId))
+                {
+                    await BroadcastToLoopbackAsync(
+                        CreateEvent("device.presence.updated", new { deviceId = removed.DeviceId, online = false, lastSeenAt = DateTimeOffset.UtcNow }),
+                        CancellationToken.None);
+                }
+            }
             _logger.LogInformation("WebSocket 已断开: {ClientId}", clientId);
+        }
+    }
+
+    public Task NotifyPairingRequestedAsync(PairingRequestNotification notification, CancellationToken cancellationToken)
+    {
+        return BroadcastToLoopbackAsync(
+            CreateEvent(
+                "device.pairing.requested",
+                new
+                {
+                    requestId = notification.RequestId,
+                    deviceName = notification.DeviceName,
+                    platform = notification.Platform,
+                    deviceModel = notification.DeviceModel,
+                    appVersion = notification.AppVersion,
+                    clientIp = notification.ClientIp,
+                    expiresAt = notification.ExpiresAt,
+                }),
+            cancellationToken);
+    }
+
+    public async Task DisconnectDeviceAsync(string deviceId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            return;
+        }
+
+        var targetId = deviceId.Trim();
+        var clients = _clients.ToArray();
+        foreach (var (clientId, connection) in clients)
+        {
+            if (string.IsNullOrWhiteSpace(connection.DeviceId)
+                || !string.Equals(connection.DeviceId, targetId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (connection.Socket.State == WebSocketState.Open)
+                {
+                    await connection.Socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "device revoked", cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "断开设备连接失败: {ClientId}", clientId);
+            }
         }
     }
 
@@ -715,8 +785,9 @@ public sealed class WebSocketHub
         var segment = new ArraySegment<byte>(bytes);
 
         var clients = _clients.ToArray();
-        foreach (var (clientId, socket) in clients)
+        foreach (var (clientId, connection) in clients)
         {
+            var socket = connection.Socket;
             if (socket.State != WebSocketState.Open)
             {
                 continue;
@@ -733,6 +804,42 @@ public sealed class WebSocketHub
         }
     }
 
+    private async Task BroadcastToLoopbackAsync(BridgeEnvelope envelope, CancellationToken cancellationToken)
+    {
+        if (_clients.IsEmpty)
+        {
+            return;
+        }
+
+        var payload = JsonSerializer.Serialize(envelope, BridgeJson.SerializerOptions);
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        var segment = new ArraySegment<byte>(bytes);
+
+        var clients = _clients.ToArray();
+        foreach (var (clientId, connection) in clients)
+        {
+            if (!connection.IsLoopback)
+            {
+                continue;
+            }
+
+            var socket = connection.Socket;
+            if (socket.State != WebSocketState.Open)
+            {
+                continue;
+            }
+
+            try
+            {
+                await socket.SendAsync(segment, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "向本机客户端发送失败: {ClientId}", clientId);
+            }
+        }
+    }
+
     private static Task SendAsync(WebSocket socket, BridgeEnvelope envelope, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Serialize(envelope, BridgeJson.SerializerOptions);
@@ -744,4 +851,6 @@ public sealed class WebSocketHub
     {
         await socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
     }
+
+    private sealed record ClientConnection(WebSocket Socket, bool IsLoopback, string? DeviceId);
 }

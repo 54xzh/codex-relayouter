@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Net;
 using codex_bridge_server.Bridge;
 using codex_bridge_server.Controllers;
@@ -79,7 +81,8 @@ public sealed class TurnPlanTests
             BearerToken = null,
         });
 
-        var authorizer = new BridgeRequestAuthorizer(securityOptions);
+        var deviceStore = new PairedDeviceStore(NullLogger<PairedDeviceStore>.Instance, filePath: GetTempFilePath());
+        var authorizer = new BridgeRequestAuthorizer(securityOptions, deviceStore);
 
         var cliInfo = new CodexCliInfo(
             Options.Create(new CodexOptions { Executable = "codex" }),
@@ -103,5 +106,11 @@ public sealed class TurnPlanTests
 
         return controller;
     }
-}
 
+    private static string GetTempFilePath()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "codex-bridge-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "paired-devices.json");
+    }
+}

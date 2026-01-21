@@ -70,6 +70,15 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Tag="connections">
+                    <NavigationViewItem.Content>
+                        <TextBlock Text="连接" />
+                    </NavigationViewItem.Content>
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="People" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItem Tag="diff">
                     <NavigationViewItem.Content>
                         <TextBlock Text="Diff" />

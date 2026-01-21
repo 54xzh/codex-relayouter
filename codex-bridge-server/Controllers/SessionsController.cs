@@ -34,7 +34,7 @@ public sealed class SessionsController : ControllerBase
     [HttpPost]
     public IActionResult Create([FromBody] CodexSessionCreateRequest? request)
     {
-        if (!_authorizer.IsAuthorized(HttpContext))
+        if (!_authorizer.IsManagementAuthorized(HttpContext))
         {
             return Unauthorized();
         }
@@ -107,7 +107,7 @@ public sealed class SessionsController : ControllerBase
     [HttpDelete("{sessionId}")]
     public IActionResult Delete([FromRoute] string sessionId)
     {
-        if (!_authorizer.IsAuthorized(HttpContext))
+        if (!_authorizer.IsManagementAuthorized(HttpContext))
         {
             return Unauthorized();
         }

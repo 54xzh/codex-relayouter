@@ -1,13 +1,17 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Dispatching;
+using codex_bridge.Bridge;
 using codex_bridge.Models;
 using codex_bridge.Pages;
 using codex_bridge.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -17,21 +21,179 @@ namespace codex_bridge
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly HttpClient _httpClient = new();
+        private readonly DispatcherQueue _dispatcherQueue;
         private int _sessionLimit = 20;
         private bool _hasMoreSessions = true;
+        private readonly object _pairingGate = new();
+        private readonly Queue<PairingRequestInfo> _pendingPairingRequests = new();
+        private bool _pairingDialogOpen;
 
         public ObservableCollection<SessionSummaryViewModel> RecentSessions { get; } = new();
 
         public MainWindow()
         {
             InitializeComponent();
+            _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
             WindowSizing.ApplyStartupSizingAndCenter(this);
 
             // Load preferences and recent sessions on startup
             _ = InitializeAsync();
 
+            App.ConnectionService.EnvelopeReceived += ConnectionService_EnvelopeReceived;
+
             Navigate("chat");
+        }
+
+        private void ConnectionService_EnvelopeReceived(object? sender, BridgeEnvelope envelope)
+        {
+            if (!string.Equals(envelope.Type, "event", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!string.Equals(envelope.Name, "device.pairing.requested", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (envelope.Data.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            if (!TryGetString(envelope.Data, "requestId", out var requestId) || string.IsNullOrWhiteSpace(requestId))
+            {
+                return;
+            }
+
+            TryGetString(envelope.Data, "deviceName", out var deviceName);
+            TryGetString(envelope.Data, "platform", out var platform);
+            TryGetString(envelope.Data, "deviceModel", out var deviceModel);
+            TryGetString(envelope.Data, "appVersion", out var appVersion);
+            TryGetString(envelope.Data, "clientIp", out var clientIp);
+
+            _dispatcherQueue.TryEnqueue(() =>
+            {
+                EnqueuePairingRequest(new PairingRequestInfo(
+                    RequestId: requestId.Trim(),
+                    DeviceName: deviceName?.Trim(),
+                    Platform: platform?.Trim(),
+                    DeviceModel: deviceModel?.Trim(),
+                    AppVersion: appVersion?.Trim(),
+                    ClientIp: clientIp?.Trim()));
+            });
+        }
+
+        private void EnqueuePairingRequest(PairingRequestInfo request)
+        {
+            lock (_pairingGate)
+            {
+                if (_pendingPairingRequests.Any(r => string.Equals(r.RequestId, request.RequestId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return;
+                }
+
+                _pendingPairingRequests.Enqueue(request);
+
+                if (_pairingDialogOpen)
+                {
+                    return;
+                }
+
+                _pairingDialogOpen = true;
+            }
+
+            _ = ShowNextPairingDialogAsync();
+        }
+
+        private async Task ShowNextPairingDialogAsync()
+        {
+            while (true)
+            {
+                PairingRequestInfo? next = null;
+                lock (_pairingGate)
+                {
+                    if (_pendingPairingRequests.Count > 0)
+                    {
+                        next = _pendingPairingRequests.Dequeue();
+                    }
+                    else
+                    {
+                        _pairingDialogOpen = false;
+                        return;
+                    }
+                }
+
+                if (next is null)
+                {
+                    continue;
+                }
+
+                var title = string.IsNullOrWhiteSpace(next.DeviceName) ? "未知设备" : next.DeviceName;
+                var meta = string.Join(" · ", new[]
+                {
+                    string.IsNullOrWhiteSpace(next.Platform) ? null : next.Platform,
+                    string.IsNullOrWhiteSpace(next.DeviceModel) ? null : next.DeviceModel,
+                    string.IsNullOrWhiteSpace(next.AppVersion) ? null : $"v{next.AppVersion}",
+                    string.IsNullOrWhiteSpace(next.ClientIp) ? null : next.ClientIp,
+                }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+                var content = string.IsNullOrWhiteSpace(meta)
+                    ? "检测到新的设备配对请求。是否允许该设备连接到本机后端？"
+                    : $"检测到新的设备配对请求：{meta}\n\n是否允许该设备连接到本机后端？";
+
+                var dialog = new ContentDialog
+                {
+                    Title = $"允许设备连接：{title}？",
+                    Content = content,
+                    PrimaryButtonText = "允许",
+                    CloseButtonText = "拒绝",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = Content.XamlRoot,
+                };
+
+                var result = await dialog.ShowAsync();
+                var decision = result == ContentDialogResult.Primary ? "approve" : "decline";
+
+                try
+                {
+                    await App.BackendServer.EnsureStartedAsync();
+
+                    var baseUri = App.BackendServer.HttpBaseUri;
+                    if (baseUri is null)
+                    {
+                        continue;
+                    }
+
+                    var uri = new Uri(baseUri, $"api/v1/connections/pairings/{next.RequestId}/respond");
+                    var payload = JsonSerializer.Serialize(new { decision }, JsonOptions);
+                    using var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
+                    using var response = await _httpClient.PostAsync(uri, httpContent, CancellationToken.None);
+                    response.EnsureSuccessStatusCode();
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static bool TryGetString(JsonElement data, string propertyName, out string? value)
+        {
+            value = null;
+
+            if (data.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!data.TryGetProperty(propertyName, out var prop) || prop.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            value = prop.GetString();
+            return true;
         }
 
         private async Task InitializeAsync()
@@ -266,6 +428,7 @@ namespace codex_bridge
             {
                 "chat" => typeof(ChatPage),
                 "sessions" => typeof(SessionsPage),
+                "connections" => typeof(ConnectionsPage),
                 "diff" => typeof(DiffPage),
                 "settings" => typeof(SettingsPage),
                 _ => typeof(ChatPage),
@@ -278,6 +441,14 @@ namespace codex_bridge
 
             ContentFrame.Navigate(target);
         }
+
+        private sealed record PairingRequestInfo(
+            string RequestId,
+            string? DeviceName,
+            string? Platform,
+            string? DeviceModel,
+            string? AppVersion,
+            string? ClientIp);
 
         private MenuFlyout CreateSessionContextMenu(SessionSummaryViewModel session)
         {
