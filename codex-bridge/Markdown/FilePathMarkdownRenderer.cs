@@ -250,8 +250,21 @@ public sealed class FilePathMarkdownRenderer : MarkdownRenderer
                 ToolTipService.SetToolTip(host, tooltip);
             }
 
+            var lastTapTimestamp = 0L;
+            var tapDebounceTicks = Stopwatch.Frequency / 3; // ~333ms
+
             host.Tapped += (sender, args) =>
             {
+                args.Handled = true;
+
+                var now = Stopwatch.GetTimestamp();
+                if (lastTapTimestamp != 0 && now - lastTapTimestamp < tapDebounceTicks)
+                {
+                    return;
+                }
+
+                lastTapTimestamp = now;
+
                 if (hasResolvedPath)
                 {
                     WorkspaceFileOpener.TryOpenPath(resolvedPath);
@@ -1059,6 +1072,11 @@ internal static class InlineCodeFilePath
             return false;
         }
 
+        if (LooksLikeHttpRequestLine(trimmed))
+        {
+            return false;
+        }
+
         if (trimmed.StartsWith("~/", StringComparison.Ordinal) || trimmed.StartsWith("~\\", StringComparison.Ordinal))
         {
             return true;
@@ -1108,6 +1126,47 @@ internal static class InlineCodeFilePath
 
         return fileName.Contains('.', StringComparison.Ordinal);
     }
+
+    private static bool LooksLikeHttpRequestLine(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        var spaceIndex = trimmed.IndexOf(' ');
+        if (spaceIndex <= 0)
+        {
+            return false;
+        }
+
+        var method = trimmed[..spaceIndex];
+        if (!IsHttpMethodToken(method))
+        {
+            return false;
+        }
+
+        var rest = trimmed[(spaceIndex + 1)..].TrimStart();
+        if (string.IsNullOrWhiteSpace(rest))
+        {
+            return false;
+        }
+
+        // Examples: "GET /api/v1/sessions", "POST /v1/login HTTP/1.1"
+        return rest.StartsWith("/", StringComparison.Ordinal) || rest.StartsWith("\\", StringComparison.Ordinal);
+    }
+
+    private static bool IsHttpMethodToken(string value) =>
+        string.Equals(value, "GET", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "POST", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "PUT", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "DELETE", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "PATCH", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "HEAD", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "OPTIONS", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "CONNECT", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "TRACE", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryParseFileReferenceSuffix(string value, out string path, out int? line, out int? column)
     {
