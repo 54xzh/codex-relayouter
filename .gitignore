@@ -27,3 +27,5 @@ BundleArtifacts/
 *.msix
 *.msixbundle
 *.appinstaller
+
+codex-bridge-android/
