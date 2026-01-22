@@ -336,6 +336,8 @@
                                     FontFamily="{StaticResource ChineseUIFont}"
                                     Text="{x:Bind Text, Mode=OneWay}"
                                     TextWrapping="Wrap"
+                                    LineHeight="20"
+                                    LineStackingStrategy="BlockLineHeight"
                                     Margin="16,0,0,0"
                                     Visibility="{x:Bind ShowPlainText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 

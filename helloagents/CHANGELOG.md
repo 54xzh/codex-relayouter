@@ -41,6 +41,7 @@
 - 优化上下文用量菜单排版：Flyout 加宽并调整行距/字间距，限额改为进度条可视化
 - 优化 WinUI Markdown 代码块样式：浅色背景/黑色字体/圆角，提高对比度
 - 优化 WinUI Markdown 行内代码样式：可打开文件路径高亮（浅蓝背景/蓝字、圆角、无描边），并修正 `InlineUIContainer` 基线对齐以减少行内“漂移”（含列表场景对齐优化）
+- 优化 WinUI Chat 页消息正文行距：略微增大无行内代码 pill 的行高，统一含/不含行内代码 pill 的视觉体验
 - 优化 WinUI 连接页：局域网地址自动选择并显示为只读文本，移除手动 IP 下拉选择
 - Android：重构 UI 为 Material3 + Navigation-Compose 三模块骨架（会话列表/聊天/连接设备），并抽离连接配置存储与 token 加密
 - 安全：`POST /api/v1/sessions` 与 `DELETE /api/v1/sessions/{sessionId}` 调整为仅回环可用（远程设备使用 WS `chat.send` 建立会话）
@@ -52,6 +53,11 @@
 - 修复 WinUI 启动后 Chat 页未自动连接（需进入设置页才触发）：Chat 页加载时 EnsureStarted 并自动连接
 - 修复会话历史回放包含 developer/环境/指令上下文：仅展示 user/assistant 的真实对话，并支持从 `## My request for Codex:` 提取真实用户消息
 - 修复点击进入会话后未自动定位到对话底部：会话历史加载完成后自动滚动到最后一条消息
+- 修复 WinUI Chat 页切换会话时未自动定位到对话底部（已缓存历史的会话可能停在顶部）：会话切换时强制滚动到底部
+- 修复 WinUI Chat 页工作区切换在会话间被覆盖：工作区改为会话级覆盖并在会话切换时恢复
+- 修复 WinUI Chat 页模型/批准策略/沙箱/思考程度在会话间串台：改为会话级覆盖，不再影响其他会话
+- 修复 WinUI Chat 页切换会话时可能卡死/被系统判定无响应（工作区为网络路径/不可访问路径时更易触发）：移除会话切换路径上的同步 `Directory.Exists` 检查
+- 修复 Bridge Server 在客户端异常断开 WebSocket 时被 Kestrel 记录为未处理异常：ReceiveLoop 捕获 `WebSocketException/OperationCanceledException`
 - 修复 WinUI Chat 页执行过程（Trace）增量更新时，处于列表底部不会自动跟随滚动的问题
 - 修复 WinUI Chat 页输出正文后 Trace 未自动折叠的问题
 - 修复新建会话缺少 `cwd` 导致 `codex exec resume` 报错：创建时强制写入 `cwd`，并在 resume 时自动补写缺失值（使用 workingDirectory）

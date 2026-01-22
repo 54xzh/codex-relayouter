@@ -336,7 +336,10 @@ public sealed class FilePathMarkdownRenderer : MarkdownRenderer
 
     private static string GetInlineCodePathIconGlyph(string raw, bool hasResolvedPath, string resolvedPath, string displayName)
     {
-        if (hasResolvedPath && !string.IsNullOrWhiteSpace(resolvedPath) && Directory.Exists(resolvedPath))
+        if (hasResolvedPath
+            && !string.IsNullOrWhiteSpace(resolvedPath)
+            && !PathUtilities.IsUncPath(resolvedPath)
+            && Directory.Exists(resolvedPath))
         {
             return InlineCodePathIconGlyphFolder;
         }
@@ -478,6 +481,36 @@ public sealed class FilePathMarkdownRenderer : MarkdownRenderer
     }
 }
 
+internal static class PathUtilities
+{
+    public static bool IsUncPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var trimmed = path.Trim();
+
+        if (trimmed.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith(@"\\", StringComparison.Ordinal) && !trimmed.StartsWith(@"\\?\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
+    }
+}
+
 internal static class InlineCodeFilePath
 {
     private const string FileNameCacheAmbiguous = "__AMBIGUOUS__";
@@ -576,8 +609,8 @@ internal static class InlineCodeFilePath
         var candidates = GetCandidatePaths(pathText);
         var workingDirectory = codex_bridge.App.ConnectionService.WorkingDirectory;
         var sessionCwd = codex_bridge.App.SessionState.CurrentSessionCwd;
-        var gitRoot = TryFindGitRoot(workingDirectory);
-        var sessionGitRoot = TryFindGitRoot(sessionCwd);
+        var gitRoot = PathUtilities.IsUncPath(workingDirectory) ? null : TryFindGitRoot(workingDirectory);
+        var sessionGitRoot = PathUtilities.IsUncPath(sessionCwd) ? null : TryFindGitRoot(sessionCwd);
 
         foreach (var candidate in candidates)
         {
@@ -695,7 +728,7 @@ internal static class InlineCodeFilePath
 
         foreach (var root in roots)
         {
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root) || PathUtilities.IsUncPath(root) || !Directory.Exists(root))
             {
                 continue;
             }
@@ -873,6 +906,11 @@ internal static class InlineCodeFilePath
             return false;
         }
 
+        if (PathUtilities.IsUncPath(fullPath))
+        {
+            return true;
+        }
+
         if (File.Exists(fullPath) || Directory.Exists(fullPath))
         {
             return true;
@@ -910,6 +948,11 @@ internal static class InlineCodeFilePath
             return false;
         }
 
+        if (PathUtilities.IsUncPath(fullPath))
+        {
+            return true;
+        }
+
         return File.Exists(fullPath) || Directory.Exists(fullPath);
     }
 
@@ -917,15 +960,9 @@ internal static class InlineCodeFilePath
     {
         try
         {
-            if (Directory.Exists(fullPath))
-            {
-                var trimmed = Path.TrimEndingDirectorySeparator(fullPath);
-                var name = Path.GetFileName(trimmed);
-                return string.IsNullOrWhiteSpace(name) ? trimmed : name;
-            }
-
-            var fileName = Path.GetFileName(fullPath);
-            return string.IsNullOrWhiteSpace(fileName) ? fullPath : fileName;
+            var trimmed = Path.TrimEndingDirectorySeparator(fullPath);
+            var name = Path.GetFileName(trimmed);
+            return string.IsNullOrWhiteSpace(name) ? trimmed : name;
         }
         catch
         {
@@ -961,6 +998,11 @@ internal static class InlineCodeFilePath
     private static string? TryFindGitRoot(string? startDirectory)
     {
         if (string.IsNullOrWhiteSpace(startDirectory))
+        {
+            return null;
+        }
+
+        if (PathUtilities.IsUncPath(startDirectory))
         {
             return null;
         }

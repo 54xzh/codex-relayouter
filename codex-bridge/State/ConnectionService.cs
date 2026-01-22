@@ -169,6 +169,33 @@ public sealed class ConnectionService : IAsyncDisposable
         return Path.TrimEndingDirectorySeparator(workingDirectory.Trim());
     }
 
+    private static bool IsUncPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var trimmed = path.Trim();
+
+        if (trimmed.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith(@"\\", StringComparison.Ordinal) && !trimmed.StartsWith(@"\\?\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private static string GetRecentWorkingDirectoriesPath()
     {
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -182,13 +209,18 @@ public sealed class ConnectionService : IAsyncDisposable
 
     private void TrackRecentWorkingDirectory(string? workingDirectory)
     {
-        if (string.IsNullOrWhiteSpace(workingDirectory) || !Directory.Exists(workingDirectory))
+        if (string.IsNullOrWhiteSpace(workingDirectory))
         {
             return;
         }
 
         var normalized = NormalizeWorkingDirectory(workingDirectory);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return;
+        }
+
+        if (!IsUncPath(normalized) && !Directory.Exists(normalized))
         {
             return;
         }
@@ -234,7 +266,7 @@ public sealed class ConnectionService : IAsyncDisposable
                     continue;
                 }
 
-                if (!Directory.Exists(normalized))
+                if (!IsUncPath(normalized) && !Directory.Exists(normalized))
                 {
                     continue;
                 }

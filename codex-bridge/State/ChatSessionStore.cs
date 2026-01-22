@@ -27,6 +27,16 @@ public sealed class ChatSessionState
 
     public string SessionKey { get; }
 
+    public string? WorkingDirectoryOverride { get; set; }
+
+    public string? SandboxOverride { get; set; }
+
+    public string? ApprovalPolicyOverride { get; set; }
+
+    public string? ModelOverride { get; set; }
+
+    public string? EffortOverride { get; set; }
+
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = new();
 
     public ObservableCollection<TurnPlanStepViewModel> TurnPlanSteps { get; } = new();
@@ -287,6 +297,14 @@ public sealed class ChatSessionStore
         {
             return;
         }
+
+        var newChat = GetSessionState(sessionId: null);
+        var created = GetSessionState(sessionId);
+        created.WorkingDirectoryOverride = newChat.WorkingDirectoryOverride;
+        created.SandboxOverride = newChat.SandboxOverride;
+        created.ApprovalPolicyOverride = newChat.ApprovalPolicyOverride;
+        created.ModelOverride = newChat.ModelOverride;
+        created.EffortOverride = newChat.EffortOverride;
 
         var workingDirectory = App.ConnectionService.WorkingDirectory;
         App.SessionState.CurrentSessionCwd = string.IsNullOrWhiteSpace(workingDirectory) ? null : workingDirectory.Trim();
@@ -875,4 +893,3 @@ public sealed class ChatSessionStore
         return property.TryGetInt32(out value);
     }
 }
-

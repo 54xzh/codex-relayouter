@@ -44,6 +44,7 @@ public sealed partial class ChatPage : Page
     private const int MaxPendingImages = 4;
     private const int MaxImageBytes = 10 * 1024 * 1024;
     private const double AutoScrollBottomTolerance = 24;
+    private const double ChatMessageLineHeight = 20;
     private const string ContextUsageUnavailableLabel = "-%";
     private const string StatusUnavailableLabel = "不可用";
 
@@ -115,6 +116,7 @@ public sealed partial class ChatPage : Page
         UpdateTurnPlanUiFromStore();
         UpdateActionButtonsVisibility();
         EnsureMessagesScrollViewer();
+        ForceScrollMessagesToBottom();
         await EnsureBackendAndConnectAsync();
         await LoadSessionHistoryIfNeededAsync();
         await LoadSessionPlanIfNeededAsync();
@@ -202,11 +204,38 @@ public sealed partial class ChatPage : Page
 
     private void ApplyConnectionSettingsToUi()
     {
+        ApplyWorkingDirectoryOverrideToServiceIfNeeded();
         ApplyWorkingDirectoryToUi();
-        SandboxText.Text = string.IsNullOrEmpty(App.ConnectionService.Sandbox) ? "默认" : App.ConnectionService.Sandbox;
-        ModelText.Text = string.IsNullOrEmpty(App.ConnectionService.Model) ? "默认" : App.ConnectionService.Model;
-        ThinkingText.Text = string.IsNullOrEmpty(App.ConnectionService.Effort) ? "默认" : App.ConnectionService.Effort;
-        ApprovalText.Text = string.IsNullOrEmpty(App.ConnectionService.ApprovalPolicy) ? "默认" : App.ConnectionService.ApprovalPolicy;
+
+        var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+        var service = App.ConnectionService;
+
+        SandboxText.Text = GetOverrideOrDefaultLabel(session.SandboxOverride, service.Sandbox);
+        ModelText.Text = GetOverrideOrDefaultLabel(session.ModelOverride, service.Model);
+        ThinkingText.Text = GetOverrideOrDefaultLabel(session.EffortOverride, service.Effort);
+        ApprovalText.Text = GetOverrideOrDefaultLabel(session.ApprovalPolicyOverride, service.ApprovalPolicy);
+    }
+
+    private void ApplyWorkingDirectoryOverrideToServiceIfNeeded()
+    {
+        var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+        var overrideCwd = session.WorkingDirectoryOverride;
+        if (string.IsNullOrWhiteSpace(overrideCwd))
+        {
+            return;
+        }
+
+        App.ConnectionService.WorkingDirectory = overrideCwd;
+    }
+
+    private static string GetOverrideOrDefaultLabel(string? overrideValue, string? defaultValue)
+    {
+        if (!string.IsNullOrWhiteSpace(overrideValue))
+        {
+            return overrideValue.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(defaultValue) ? "默认" : defaultValue.Trim();
     }
 
     private void ApplyWorkingDirectoryToUi()
@@ -216,9 +245,7 @@ public sealed partial class ChatPage : Page
         WorkspaceText.Text = GetDirectoryNameOrFallback(workingDirectory, emptyLabel: "未选择");
 
         var hasWorkingDirectory = !string.IsNullOrWhiteSpace(workingDirectory);
-        var workingDirectoryExists = hasWorkingDirectory && Directory.Exists(workingDirectory);
-
-        WorkspaceOpenInExplorerMenuItem.IsEnabled = workingDirectoryExists;
+        WorkspaceOpenInExplorerMenuItem.IsEnabled = hasWorkingDirectory;
 
         ApplyRecentWorkingDirectoriesToMenu(service.RecentWorkingDirectories, workingDirectory);
     }
@@ -246,8 +273,7 @@ public sealed partial class ChatPage : Page
             item.Text = entry;
             item.Tag = entry;
             item.Visibility = Visibility.Visible;
-            item.IsEnabled = Directory.Exists(entry)
-                && !string.Equals(entry, currentWorkingDirectory, StringComparison.OrdinalIgnoreCase);
+            item.IsEnabled = !string.Equals(entry, currentWorkingDirectory, StringComparison.OrdinalIgnoreCase);
 
             count++;
         }
@@ -299,20 +325,25 @@ public sealed partial class ChatPage : Page
             return;
         }
 
-        if (ReferenceEquals(markdown.Tag, FilePathRendererMarker))
+        if (!ReferenceEquals(markdown.Tag, FilePathRendererMarker))
         {
-            return;
+            markdown.Tag = FilePathRendererMarker;
+            markdown.SetRenderer<FilePathMarkdownRenderer>();
+
+            // SetRenderer 不会自动刷新已渲染内容；这里通过轻量重置 Text 触发重新渲染。
+            var currentText = markdown.Text;
+            if (!string.IsNullOrEmpty(currentText))
+            {
+                markdown.Text = string.Empty;
+                markdown.Text = currentText;
+            }
         }
 
-        markdown.Tag = FilePathRendererMarker;
-        markdown.SetRenderer<FilePathMarkdownRenderer>();
-
-        // SetRenderer 不会自动刷新已渲染内容；这里通过轻量重置 Text 触发重新渲染。
-        var currentText = markdown.Text;
-        if (!string.IsNullOrEmpty(currentText))
+        var richTextBlock = FindDescendant<RichTextBlock>(markdown);
+        if (richTextBlock is not null)
         {
-            markdown.Text = string.Empty;
-            markdown.Text = currentText;
+            richTextBlock.LineHeight = ChatMessageLineHeight;
+            richTextBlock.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         }
     }
 
@@ -856,6 +887,7 @@ public sealed partial class ChatPage : Page
         try
         {
             var service = App.ConnectionService;
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
 
             await service.SendCommandAsync(
                 "chat.send",
@@ -864,11 +896,11 @@ public sealed partial class ChatPage : Page
                     prompt,
                     images,
                     sessionId = App.SessionState.CurrentSessionId,
-                    workingDirectory = service.WorkingDirectory,
-                    model = service.Model,
-                    sandbox = service.Sandbox,
-                    approvalPolicy = service.ApprovalPolicy,
-                    effort = service.Effort,
+                    workingDirectory = session.WorkingDirectoryOverride ?? service.WorkingDirectory,
+                    model = session.ModelOverride ?? service.Model,
+                    sandbox = session.SandboxOverride ?? service.Sandbox,
+                    approvalPolicy = session.ApprovalPolicyOverride ?? service.ApprovalPolicy,
+                    effort = session.EffortOverride ?? service.Effort,
                     skipGitRepoCheck = service.SkipGitRepoCheck,
                 },
                 CancellationToken.None);
@@ -1060,10 +1092,18 @@ public sealed partial class ChatPage : Page
         }
 
         ApplySessionStateToUi();
+        ApplyConnectionSettingsToUi();
         UpdateTurnPlanUiFromStore();
         UpdateActionButtonsVisibility();
         _ = LoadSessionHistoryIfNeededAsync();
         _ = LoadSessionPlanIfNeededAsync();
+        ForceScrollMessagesToBottom();
+    }
+
+    private void ForceScrollMessagesToBottom()
+    {
+        _forceScrollToBottomOnNextContentUpdate = true;
+        RequestScrollMessagesToBottom();
     }
 
     private void ChatStore_SessionContentUpdated(object? sender, string sessionKey)
@@ -1924,13 +1964,6 @@ public sealed partial class ChatPage : Page
             return;
         }
 
-        if (!Directory.Exists(workingDirectory))
-        {
-            SetSessionStatus($"目录不存在: {workingDirectory}");
-            ApplyWorkingDirectoryToUi();
-            return;
-        }
-
         try
         {
             Process.Start(new ProcessStartInfo
@@ -1953,13 +1986,8 @@ public sealed partial class ChatPage : Page
             return;
         }
 
-        if (!Directory.Exists(workingDirectory))
-        {
-            SetSessionStatus($"目录不存在: {workingDirectory}");
-            ApplyWorkingDirectoryToUi();
-            return;
-        }
-
+        var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+        session.WorkingDirectoryOverride = workingDirectory;
         App.ConnectionService.WorkingDirectory = workingDirectory;
         ApplyWorkingDirectoryToUi();
     }
@@ -1981,6 +2009,8 @@ public sealed partial class ChatPage : Page
                 return;
             }
 
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+            session.WorkingDirectoryOverride = folder.Path;
             App.ConnectionService.WorkingDirectory = folder.Path;
             ApplyWorkingDirectoryToUi();
         }
@@ -1994,8 +2024,9 @@ public sealed partial class ChatPage : Page
     {
         if (sender is MenuFlyoutItem item && item.Tag is string value)
         {
-            SandboxText.Text = string.IsNullOrEmpty(value) ? "默认" : value;
-            App.ConnectionService.Sandbox = string.IsNullOrEmpty(value) ? null : value;
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+            session.SandboxOverride = string.IsNullOrEmpty(value) ? null : value;
+            ApplyConnectionSettingsToUi();
         }
     }
 
@@ -2003,8 +2034,9 @@ public sealed partial class ChatPage : Page
     {
         if (sender is MenuFlyoutItem item && item.Tag is string value)
         {
-            ApprovalText.Text = string.IsNullOrEmpty(value) ? "默认" : value;
-            App.ConnectionService.ApprovalPolicy = string.IsNullOrEmpty(value) ? null : value;
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+            session.ApprovalPolicyOverride = string.IsNullOrEmpty(value) ? null : value;
+            ApplyConnectionSettingsToUi();
         }
     }
 
@@ -2012,8 +2044,9 @@ public sealed partial class ChatPage : Page
     {
         if (sender is MenuFlyoutItem item && item.Tag is string value)
         {
-            ModelText.Text = string.IsNullOrEmpty(value) ? "默认" : value;
-            App.ConnectionService.Model = string.IsNullOrEmpty(value) ? null : value;
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+            session.ModelOverride = string.IsNullOrEmpty(value) ? null : value;
+            ApplyConnectionSettingsToUi();
         }
     }
 
@@ -2021,8 +2054,9 @@ public sealed partial class ChatPage : Page
     {
         if (sender is MenuFlyoutItem item && item.Tag is string value)
         {
-            ThinkingText.Text = string.IsNullOrEmpty(value) ? "默认" : value;
-            App.ConnectionService.Effort = string.IsNullOrEmpty(value) ? null : value;
+            var session = App.ChatStore.GetSessionState(App.SessionState.CurrentSessionId);
+            session.EffortOverride = string.IsNullOrEmpty(value) ? null : value;
+            ApplyConnectionSettingsToUi();
         }
     }
 }

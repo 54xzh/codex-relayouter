@@ -141,33 +141,49 @@ public sealed class WebSocketHub
         var buffer = new byte[16 * 1024];
         var segment = new ArraySegment<byte>(buffer);
 
-        while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
+        try
         {
-            using var messageStream = new MemoryStream();
-            WebSocketReceiveResult? result;
-
-            do
+            while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
-                result = await socket.ReceiveAsync(segment, cancellationToken);
+                using var messageStream = new MemoryStream();
+                WebSocketReceiveResult? result;
 
-                if (result.MessageType == WebSocketMessageType.Close)
+                do
                 {
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", cancellationToken);
-                    return;
+                    result = await socket.ReceiveAsync(segment, cancellationToken);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", cancellationToken);
+                        return;
+                    }
+
+                    messageStream.Write(segment.Array!, segment.Offset, result.Count);
+                }
+                while (!result.EndOfMessage);
+
+                if (result.MessageType != WebSocketMessageType.Text)
+                {
+                    continue;
                 }
 
-                messageStream.Write(segment.Array!, segment.Offset, result.Count);
+                var text = Encoding.UTF8.GetString(messageStream.ToArray());
+                await HandleClientMessageAsync(clientId, text, cancellationToken);
             }
-            while (!result.EndOfMessage);
-
-            if (result.MessageType != WebSocketMessageType.Text)
-            {
-                continue;
-            }
-
-            var text = Encoding.UTF8.GetString(messageStream.ToArray());
-            await HandleClientMessageAsync(clientId, text, cancellationToken);
         }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown
+        }
+        catch (WebSocketException ex)
+        {
+            _logger.LogDebug(ex, "WebSocket 接收中断: {ClientId}", clientId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "WebSocket 接收失败: {ClientId}", clientId);
+        }
+
     }
 
     private async Task HandleClientMessageAsync(string clientId, string text, CancellationToken cancellationToken)
