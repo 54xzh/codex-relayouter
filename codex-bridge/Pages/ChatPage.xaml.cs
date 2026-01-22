@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -71,6 +72,35 @@ public sealed partial class ChatPage : Page
 
         Loaded += ChatPage_Loaded;
         Unloaded += ChatPage_Unloaded;
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        if (e.Parameter is not ChatNavigationRequest request)
+        {
+            return;
+        }
+
+        App.SessionState.CurrentSessionCwd = request.Cwd;
+        App.SessionState.CurrentSessionId = request.SessionId;
+
+        try
+        {
+            Bindings.Update();
+        }
+        catch
+        {
+        }
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+
+        App.ChatStore.SetChatPageActive(false);
+        DetachHandlersIfNeeded();
     }
 
     private async void ChatPage_Loaded(object sender, RoutedEventArgs e)

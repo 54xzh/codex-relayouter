@@ -1,6 +1,4 @@
-# 任务清单：多任务并行 + 状态保持 + 侧边栏指示
-
-> 已完成并归档：`helloagents/history/2026-01/202601222027_multi-run-state-sidebar/`（`why.md` / `how.md` / `task.md`）
+# 任务清单: 多任务并行 + 状态保持 + 侧边栏指示
 
 - [√] Bridge Server：支持跨会话并行 run（同会话串行闸门）
 - [√] Bridge Server：`run.cancel` 支持指定 `runId/sessionId`
@@ -14,4 +12,3 @@
 - [√] 文档：更新 `helloagents/wiki/api.md` 与 `helloagents/wiki/data.md`（必要时 `helloagents/wiki/arch.md`）
 - [√] 文档：实现后同步 `helloagents/CHANGELOG.md`
 - [√] WinUI：修复会话切换动画异常（禁用消息列表默认 ItemContainerTransitions）
-

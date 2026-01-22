@@ -76,3 +76,4 @@
 - 修复会话列表混入“任务标题生成”对话：当首条 user 消息以 `You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title for a task that will be created from that prompt.` 开头时，服务端从会话列表中自动过滤（最近/全部会话均不显示）
 - 修复 Bridge Server 全局单任务限制导致无法同时执行多个任务：改为按 `runId` 并发跟踪，并支持 `run.cancel(runId/sessionId)` 定位取消目标
 - 修复 WinUI 切换页面/会话后返回对话“正文为空但仍在更新”的问题：会话输出/计划/运行状态改为全局 Store 缓存并按 `sessionId` 绑定
+- 修复 WinUI 切换会话时消息列表动画异常：会话切换改为使用 Frame 原生导航过渡（NavigationView RecommendedNavigationTransitionInfo），并禁用批量 ItemContainerTransitions 入场动画以避免闪烁

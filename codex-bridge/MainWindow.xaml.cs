@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using codex_bridge.Bridge;
 using codex_bridge.Models;
@@ -652,18 +653,18 @@ namespace codex_bridge
 
             if (tag == "newchat")
             {
-                HandleNewChat();
+                HandleNewChat(args.RecommendedNavigationTransitionInfo);
                 return;
             }
 
             if (tag.StartsWith("session:"))
             {
                 var sessionId = tag.Substring("session:".Length);
-                HandleSelectSession(sessionId);
+                HandleSelectSession(sessionId, args.RecommendedNavigationTransitionInfo);
                 return;
             }
 
-            Navigate(tag);
+            Navigate(tag, transitionInfo: args.RecommendedNavigationTransitionInfo);
         }
 
         private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -680,27 +681,33 @@ namespace codex_bridge
                 return;
             }
 
-            Navigate(tag);
+            Navigate(tag, transitionInfo: args.RecommendedNavigationTransitionInfo);
         }
 
-        private void HandleNewChat()
+        private void HandleNewChat(NavigationTransitionInfo? transitionInfo)
         {
-            // Clear current session to start fresh
-            App.SessionState.CurrentSessionId = null;
             NavView.SelectedItem = NewChatItem;
-            Navigate("chat");
+            Navigate(
+                "chat",
+                parameter: new ChatNavigationRequest(SessionId: null, Cwd: null),
+                transitionInfo: transitionInfo,
+                force: true);
         }
 
-        private void HandleSelectSession(string sessionId)
+        private void HandleSelectSession(string sessionId, NavigationTransitionInfo? transitionInfo)
         {
             var session = FindSessionById(sessionId);
             if (session is not null)
             {
-                App.SessionState.CurrentSessionCwd = session.Cwd;
-                App.SessionState.CurrentSessionId = session.Id;
+                Navigate(
+                    "chat",
+                    parameter: new ChatNavigationRequest(SessionId: session.Id, Cwd: session.Cwd),
+                    transitionInfo: transitionInfo,
+                    force: true);
+                return;
             }
 
-            Navigate("chat");
+            Navigate("chat", transitionInfo: transitionInfo, force: true);
         }
 
         private SessionSummaryViewModel? FindSessionById(string sessionId)
@@ -715,7 +722,11 @@ namespace codex_bridge
             return null;
         }
 
-        private void Navigate(string? tag)
+        private void Navigate(
+            string? tag,
+            object? parameter = null,
+            NavigationTransitionInfo? transitionInfo = null,
+            bool force = false)
         {
             var target = tag switch
             {
@@ -727,12 +738,18 @@ namespace codex_bridge
                 _ => typeof(ChatPage),
             };
 
-            if (ContentFrame.CurrentSourcePageType == target)
+            if (!force && ContentFrame.CurrentSourcePageType == target)
             {
                 return;
             }
 
-            ContentFrame.Navigate(target);
+            if (transitionInfo is null)
+            {
+                ContentFrame.Navigate(target, parameter);
+                return;
+            }
+
+            ContentFrame.Navigate(target, parameter, transitionInfo);
         }
 
         private sealed record PairingRequestInfo(

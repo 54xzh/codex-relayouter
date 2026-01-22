@@ -64,6 +64,7 @@
 | 202601220035 | connections_pairing | 功能 | ✅已完成（连接/配对/设备管理/多端同步） | [202601220035_connections_pairing](2026-01/202601220035_connections_pairing/) |
 | 202601220259 | connections_persist | 修复 | ✅已完成（记住局域网开关/端口持久化） | [202601220259_connections_persist](2026-01/202601220259_connections_persist/) |
 | 202601220211 | android_material3_skeleton | 功能 | ✅已完成（Android Material3 三模块骨架） | [202601220211_android_material3_skeleton](2026-01/202601220211_android_material3_skeleton/) |
+| 202601222027 | multi-run-state-sidebar | 功能 | ✅已完成（多任务并行/状态保持/侧边栏指示器） | [202601222027_multi-run-state-sidebar](2026-01/202601222027_multi-run-state-sidebar/) |
 
 ---
 
@@ -127,4 +128,5 @@
 - [202601220035_connections_pairing](2026-01/202601220035_connections_pairing/) - 功能：连接（局域网配对/设备列表/撤销/Android 同步）
 - [202601220259_connections_persist](2026-01/202601220259_connections_persist/) - 修复：连接体验（记住局域网开关/端口持久化，避免重复配对）
 - [202601220211_android_material3_skeleton](2026-01/202601220211_android_material3_skeleton/) - Android：Material3 三模块骨架（会话/聊天/连接设备）
+- [202601222027_multi-run-state-sidebar](2026-01/202601222027_multi-run-state-sidebar/) - 功能：多任务并行 + 状态保持 + 侧边栏指示器
 

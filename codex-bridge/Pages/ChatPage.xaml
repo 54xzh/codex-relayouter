@@ -158,6 +158,9 @@
             ItemsSource="{x:Bind Messages, Mode=OneWay}"
             SelectionMode="None"
             Padding="0,8">
+            <ListView.ItemContainerTransitions>
+                <TransitionCollection />
+            </ListView.ItemContainerTransitions>
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
