@@ -79,15 +79,6 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Tag="diff">
-                    <NavigationViewItem.Content>
-                        <TextBlock Text="Diff" />
-                    </NavigationViewItem.Content>
-                    <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="PreviewLink" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
                 <NavigationViewItem Tag="settings">
                     <NavigationViewItem.Content>
                         <TextBlock Text="设置" />

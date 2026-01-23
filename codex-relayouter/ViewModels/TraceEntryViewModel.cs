@@ -11,6 +11,10 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
     private string _status;
     private int? _exitCode;
     private string? _output;
+    private string? _diffText;
+    private string? _filePath;
+    private int _added;
+    private int _removed;
     private string _rawReasoningText = string.Empty;
     private bool _isExpanded;
 
@@ -29,6 +33,8 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
 
     public bool IsReasoning => string.Equals(Kind, "reasoning", StringComparison.OrdinalIgnoreCase);
 
+    public bool IsDiff => string.Equals(Kind, "diff", StringComparison.OrdinalIgnoreCase);
+
     public string? Title { get; private set; }
 
     public string? Text { get; private set; }
@@ -36,6 +42,81 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
     public string? Tool { get; private set; }
 
     public string? Command { get; private set; }
+
+    public string? FilePath
+    {
+        get => _filePath;
+        private set
+        {
+            if (string.Equals(_filePath, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _filePath = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DiffHeader));
+        }
+    }
+
+    public int Added
+    {
+        get => _added;
+        private set
+        {
+            if (_added == value)
+            {
+                return;
+            }
+
+            _added = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DiffHeader));
+        }
+    }
+
+    public int Removed
+    {
+        get => _removed;
+        private set
+        {
+            if (_removed == value)
+            {
+                return;
+            }
+
+            _removed = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DiffHeader));
+        }
+    }
+
+    public string? DiffText
+    {
+        get => _diffText;
+        private set
+        {
+            if (string.Equals(_diffText, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _diffText = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDiff));
+        }
+    }
+
+    public bool HasDiff => !string.IsNullOrWhiteSpace(DiffText);
+
+    public string DiffHeader
+    {
+        get
+        {
+            var name = string.IsNullOrWhiteSpace(FilePath) ? "变更" : FilePath;
+            return $"{name} (+{Added} -{Removed})";
+        }
+    }
 
     public bool IsExpanded
     {
@@ -184,6 +265,16 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
         return vm;
     }
 
+    public static TraceEntryViewModel CreateDiff(string id, string path, string diff, int added, int removed)
+    {
+        var vm = new TraceEntryViewModel(id, "diff")
+        {
+            FilePath = path,
+        };
+        vm.UpdateDiff(path, diff, added, removed);
+        return vm;
+    }
+
     public void UpdateCommand(string? status, int? exitCode, string? output)
     {
         if (status is not null)
@@ -199,6 +290,29 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(output))
         {
             Output = output;
+        }
+    }
+
+    public void UpdateDiff(string? path, string? diff, int? added, int? removed)
+    {
+        if (path is not null)
+        {
+            FilePath = path;
+        }
+
+        if (added.HasValue)
+        {
+            Added = added.Value;
+        }
+
+        if (removed.HasValue)
+        {
+            Removed = removed.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(diff))
+        {
+            DiffText = diff;
         }
     }
 

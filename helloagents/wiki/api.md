@@ -80,6 +80,18 @@ Bridge Server 对外提供两类接口：
 }
 ```
 
+#### [GET] /api/v1/sessions/{sessionId}/settings
+**描述:** 获取会话最新的 `sandbox/approvalPolicy` 设置（已实现）
+
+**说明（当前实现）:**
+- 数据来源：`%USERPROFILE%\\.codex\\sessions`（JSONL）
+- 提取方式：从会话文件末尾（tail）best-effort 扫描并提取 `approval_policy` / `sandbox_mode`（也兼容 `approvalPolicy` / `sandbox`）
+
+**响应:**
+```json
+{ "sandbox": "workspace-write", "approvalPolicy": "never" }
+```
+
 #### [GET] /api/v1/sessions/{sessionId}/plan
 **描述:** 获取会话最新计划（turn plan）（已实现）
 
@@ -179,6 +191,7 @@ Bridge Server 对外提供两类接口：
 **已实现消息（MVP 骨架）:**
 - command `chat.send`：`{ "prompt": "string(optional)", "images": ["data:image/...;base64,..."] (optional), "sessionId": "uuid(optional)", "workingDirectory": "C:\\path(optional)", "model": "o3(optional)", "sandbox": "workspace-write(optional)", "approvalPolicy": "on-request(optional)", "effort": "high(optional)", "skipGitRepoCheck": false }`
   - 说明：`prompt` 允许为空，但 `prompt/images` 至少其一需要存在
+  - 默认值：当 `sandbox/approvalPolicy` 未提供或为 `null` 时，服务端会优先从该 `sessionId` 的会话文件提取最新值；新会话则从 `~/.codex/config.toml` 读取（键：`sandbox_mode`、`approval_policy`）
 - 并行：允许跨 `sessionId` 并行；同一 `sessionId` 同时仅允许一个运行中的任务（超出会返回 `run.rejected`）
 - command `run.cancel`：`{ "runId": "string(optional)", "sessionId": "string(optional)" }`
   - 说明：`runId/sessionId` 至少其一需要存在；仅提供 `sessionId` 时取消该会话当前 active run
@@ -195,6 +208,8 @@ Bridge Server 对外提供两类接口：
 - event `run.command.outputDelta`：`{ "runId": "...", "itemId": "item_0", "delta": "..." }`
 - event `run.reasoning`：`{ "runId": "...", "itemId": "item_1", "text": "..." }`
 - event `run.reasoning.delta`：`{ "runId": "...", "itemId": "item_1_summary_0", "textDelta": "..." }`
+- event `diff.updated`：`{ "runId": "...", "threadId": "...(optional)", "files": [{ "path": "...", "diff": "...", "added": 1, "removed": 1 }] }`
+- event `diff.summary`：`{ "runId": "...", "threadId": "...(optional)", "files": [{ "path": "...", "added": 1, "removed": 1 }], "totalAdded": 1, "totalRemoved": 1 }`
 - event `run.cancel.requested`：`{ "clientId": "...", "runId": "...", "sessionId": "thread_xxx(optional)" }`
 - event `run.completed`：`{ "runId": "...", "sessionId": "thread_xxx(optional)", "exitCode": 0 }`
 - event `run.canceled`：`{ "runId": "...", "sessionId": "thread_xxx(optional)" }`

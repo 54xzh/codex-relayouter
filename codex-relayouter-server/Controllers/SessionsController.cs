@@ -104,6 +104,28 @@ public sealed class SessionsController : ControllerBase
         return Ok(snapshot);
     }
 
+    [HttpGet("{sessionId}/settings")]
+    public IActionResult GetLatestSettings([FromRoute] string sessionId)
+    {
+        if (!_authorizer.IsAuthorized(HttpContext))
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return BadRequest(new { message = "sessionId 不能为空" });
+        }
+
+        var snapshot = _sessionStore.TryReadLatestSettings(sessionId.Trim());
+        if (snapshot is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(snapshot);
+    }
+
     [HttpDelete("{sessionId}")]
     public IActionResult Delete([FromRoute] string sessionId)
     {

@@ -73,6 +73,8 @@ public sealed class CodexAppServerRunner
 
         var currentThreadId = string.Empty;
         var currentTurnId = string.Empty;
+        var diffTracker = new DiffRunTracker();
+        var diffSummaryEmitted = false;
 
         var completedTcs = new TaskCompletionSource<CodexAppServerTurnResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -486,8 +488,47 @@ public sealed class CodexAppServerRunner
                     if (string.Equals(method, "item/fileChange/requestApproval", StringComparison.Ordinal))
                     {
                         var approval = ParseApprovalRequest(id, kind: "fileChange", @params);
+                        var hasPayload = TryGetFileChangePayloadsFromApprovalParams(@params, out var payloads);
                         var decision = await requestApproval(approval, ct);
-                        await SendAsync(new { id, result = new { decision = NormalizeDecision(decision.Decision, defaultValue: "decline") } }, ct);
+                        var normalizedDecision = NormalizeDecision(decision.Decision, defaultValue: "decline");
+
+                        if (hasPayload && IsAcceptedDecision(normalizedDecision))
+                        {
+                            var updates = new List<object>(capacity: payloads.Count);
+                            foreach (var payload in payloads)
+                            {
+                                var snapshot = diffTracker.Update(payload.Path, payload.Diff, payload.Added, payload.Removed);
+                                if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.Diff))
+                                {
+                                    continue;
+                                }
+
+                                updates.Add(
+                                    new
+                                    {
+                                        path = snapshot.Path,
+                                        diff = snapshot.Diff,
+                                        added = snapshot.Added,
+                                        removed = snapshot.Removed,
+                                    });
+                            }
+
+                            if (updates.Count > 0)
+                            {
+                                await emitEvent(
+                                    CreateEvent(
+                                        "diff.updated",
+                                        new
+                                        {
+                                            runId,
+                                            threadId = currentThreadId,
+                                            files = updates,
+                                        }),
+                                    ct);
+                            }
+                        }
+
+                        await SendAsync(new { id, result = new { decision = normalizedDecision } }, ct);
                         return;
                     }
 
@@ -507,6 +548,29 @@ public sealed class CodexAppServerRunner
             }, CancellationToken.None);
 
             return true;
+        }
+
+        async Task EmitDiffSummaryAsync(CancellationToken ct)
+        {
+            if (diffSummaryEmitted || !diffTracker.HasChanges)
+            {
+                return;
+            }
+
+            diffSummaryEmitted = true;
+            var summary = diffTracker.BuildSummary();
+            await emitEvent(
+                CreateEvent(
+                    "diff.summary",
+                    new
+                    {
+                        runId,
+                        threadId = currentThreadId,
+                        files = summary.Files,
+                        totalAdded = summary.TotalAdded,
+                        totalRemoved = summary.TotalRemoved,
+                    }),
+                ct);
         }
 
         async Task HandleNotificationAsync(JsonElement root, CancellationToken ct)
@@ -572,6 +636,7 @@ public sealed class CodexAppServerRunner
                                 Status = status ?? "completed",
                                 Turn = turnCompleted,
                             });
+                        await EmitDiffSummaryAsync(ct);
                         return;
                     }
                 case "turn/plan/updated":
@@ -754,6 +819,50 @@ public sealed class CodexAppServerRunner
                             return;
                         }
 
+                        if (IsFileChangeItemType(itemType))
+                        {
+                            if (!TryGetFileChangePayloads(item, out var payloads))
+                            {
+                                return;
+                            }
+
+                            var updates = new List<object>(capacity: payloads.Count);
+                            foreach (var payload in payloads)
+                            {
+                                var snapshot = diffTracker.Update(payload.Path, payload.Diff, payload.Added, payload.Removed);
+                                if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.Diff))
+                                {
+                                    continue;
+                                }
+
+                                updates.Add(
+                                    new
+                                    {
+                                        path = snapshot.Path,
+                                        diff = snapshot.Diff,
+                                        added = snapshot.Added,
+                                        removed = snapshot.Removed,
+                                    });
+                            }
+
+                            if (updates.Count == 0)
+                            {
+                                return;
+                            }
+
+                            await emitEvent(
+                                CreateEvent(
+                                    "diff.updated",
+                                    new
+                                    {
+                                        runId,
+                                        threadId = currentThreadId,
+                                        files = updates,
+                                    }),
+                                ct);
+                            return;
+                        }
+
                         if (string.Equals(itemType, "commandExecution", StringComparison.Ordinal))
                         {
                             if (!TryGetString(item, "command", out var command) || string.IsNullOrWhiteSpace(command))
@@ -845,6 +954,7 @@ public sealed class CodexAppServerRunner
                     throw new InvalidOperationException($"codex app-server 异常退出: exitCode={process.ExitCode}");
                 }
 
+                await EmitDiffSummaryAsync(cancellationToken);
                 return new CodexAppServerTurnResult
                 {
                     ThreadId = currentThreadId,
@@ -854,7 +964,9 @@ public sealed class CodexAppServerRunner
                 };
             }
 
-            return await completedTcs.Task;
+            var completedTurn = await completedTcs.Task;
+            await EmitDiffSummaryAsync(cancellationToken);
+            return completedTurn;
         }
         finally
         {
@@ -1135,6 +1247,569 @@ public sealed class CodexAppServerRunner
         }
 
         return property.TryGetInt32(out value);
+    }
+
+    private static bool TryGetStringAny(JsonElement data, out string? value, params string[] propertyNames)
+    {
+        value = null;
+
+        if (data.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var propertyName in propertyNames)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                continue;
+            }
+
+            if (!data.TryGetProperty(propertyName, out var property))
+            {
+                continue;
+            }
+
+            if (property.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            value = property.GetString();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInt32Any(JsonElement data, out int value, params string[] propertyNames)
+    {
+        value = 0;
+
+        if (data.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var propertyName in propertyNames)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                continue;
+            }
+
+            if (!data.TryGetProperty(propertyName, out var property))
+            {
+                continue;
+            }
+
+            if (property.ValueKind != JsonValueKind.Number)
+            {
+                continue;
+            }
+
+            if (property.TryGetInt32(out value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsAcceptedDecision(string decision)
+    {
+        if (string.IsNullOrWhiteSpace(decision))
+        {
+            return false;
+        }
+
+        var normalized = decision.Trim();
+        return normalized.StartsWith("accept", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFileChangeItemType(string itemType)
+    {
+        if (string.IsNullOrWhiteSpace(itemType))
+        {
+            return false;
+        }
+
+        var normalized = itemType.Trim();
+        if (string.Equals(normalized, "fileChange", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.Equals(normalized, "file_change", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(normalized, "filechange", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private readonly record struct FileChangePayload(string Path, string? Diff, int? Added, int? Removed);
+
+    private static bool TryGetFileChangePayloads(JsonElement item, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        if (TryCollectFileChangePayloadsFromContainer(item, out var collected))
+        {
+            payloads = collected;
+            return true;
+        }
+
+        if (TryCollectFileChangePayloadFromSingle(item, out var single))
+        {
+            payloads = new[] { single };
+            return true;
+        }
+
+        if (TryCollectFileChangePayloadsFromDiffText(item, out var fromDiff))
+        {
+            payloads = fromDiff;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryCollectFileChangePayloadFromSingle(JsonElement item, out FileChangePayload payload)
+    {
+        payload = default;
+
+        if (!TryGetFileChangePayload(item, out var path, out var diff, out var added, out var removed))
+        {
+            return false;
+        }
+
+        payload = new FileChangePayload(path, diff, added, removed);
+        return true;
+    }
+
+    private static bool TryCollectFileChangePayloadsFromContainer(JsonElement item, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        if (item.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        var list = new List<FileChangePayload>(capacity: 4);
+        foreach (var propertyName in new[] { "files", "fileChanges", "file_changes", "changes" })
+        {
+            if (!item.TryGetProperty(propertyName, out var container) || container.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var entry in container.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                if (!TryGetFileChangePayload(entry, out var path, out var diff, out var added, out var removed))
+                {
+                    continue;
+                }
+
+                list.Add(new FileChangePayload(path, diff, added, removed));
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            return false;
+        }
+
+        payloads = list;
+        return true;
+    }
+
+    private static bool TryCollectFileChangePayloadsFromDiffText(JsonElement item, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        if (!TryGetStringAny(item, out var diffValue, "diff", "patch", "unifiedDiff", "unified_diff", "diffText", "diff_text"))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(diffValue))
+        {
+            return false;
+        }
+
+        if (!TrySplitPatchByFile(diffValue, out var splitPayloads))
+        {
+            return false;
+        }
+
+        payloads = splitPayloads;
+        return true;
+    }
+
+    private static bool TrySplitPatchByFile(string diffText, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        if (string.IsNullOrWhiteSpace(diffText))
+        {
+            return false;
+        }
+
+        if (diffText.Contains("*** Begin Patch", StringComparison.Ordinal) || diffText.Contains("*** Update File:", StringComparison.Ordinal))
+        {
+            if (TrySplitApplyPatch(diffText, out payloads))
+            {
+                return true;
+            }
+        }
+
+        if (diffText.Contains("diff --git ", StringComparison.Ordinal))
+        {
+            if (TrySplitGitDiff(diffText, out payloads))
+            {
+                return true;
+            }
+        }
+
+        if (TryExtractSinglePathFromDiffText(diffText, out var path))
+        {
+            payloads = new[] { new FileChangePayload(path, diffText, null, null) };
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TrySplitApplyPatch(string diffText, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        var normalized = diffText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+
+        var list = new List<FileChangePayload>(capacity: 2);
+        var currentPath = (string?)null;
+        var currentBuilder = (StringBuilder?)null;
+
+        void Flush()
+        {
+            if (currentBuilder is null || string.IsNullOrWhiteSpace(currentPath))
+            {
+                return;
+            }
+
+            var text = currentBuilder.ToString().TrimEnd('\n');
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            list.Add(new FileChangePayload(currentPath.Trim(), text, null, null));
+        }
+
+        foreach (var line in lines)
+        {
+            if (TryParseApplyPatchFileHeader(line, out var path))
+            {
+                Flush();
+                currentPath = path;
+                currentBuilder = new StringBuilder(capacity: Math.Min(diffText.Length, 4096));
+            }
+
+            if (currentBuilder is not null)
+            {
+                currentBuilder.Append(line);
+                currentBuilder.Append('\n');
+            }
+        }
+
+        Flush();
+
+        if (list.Count == 0)
+        {
+            return false;
+        }
+
+        payloads = list;
+        return true;
+    }
+
+    private static bool TryParseApplyPatchFileHeader(string line, out string path)
+    {
+        path = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        var trimmed = line.TrimStart();
+
+        const string updatePrefix = "*** Update File:";
+        const string addPrefix = "*** Add File:";
+        const string deletePrefix = "*** Delete File:";
+
+        if (trimmed.StartsWith(updatePrefix, StringComparison.Ordinal))
+        {
+            path = trimmed.Substring(updatePrefix.Length).TrimStart();
+            return !string.IsNullOrWhiteSpace(path);
+        }
+
+        if (trimmed.StartsWith(addPrefix, StringComparison.Ordinal))
+        {
+            path = trimmed.Substring(addPrefix.Length).TrimStart();
+            return !string.IsNullOrWhiteSpace(path);
+        }
+
+        if (trimmed.StartsWith(deletePrefix, StringComparison.Ordinal))
+        {
+            path = trimmed.Substring(deletePrefix.Length).TrimStart();
+            return !string.IsNullOrWhiteSpace(path);
+        }
+
+        return false;
+    }
+
+    private static bool TrySplitGitDiff(string diffText, out IReadOnlyList<FileChangePayload> payloads)
+    {
+        payloads = Array.Empty<FileChangePayload>();
+
+        var normalized = diffText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+
+        var list = new List<FileChangePayload>(capacity: 2);
+        var currentPath = (string?)null;
+        var currentBuilder = (StringBuilder?)null;
+
+        void Flush()
+        {
+            if (currentBuilder is null || string.IsNullOrWhiteSpace(currentPath))
+            {
+                return;
+            }
+
+            var text = currentBuilder.ToString().TrimEnd('\n');
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            list.Add(new FileChangePayload(currentPath.Trim(), text, null, null));
+        }
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("diff --git ", StringComparison.Ordinal) && TryParseGitDiffHeaderPath(line, out var path))
+            {
+                Flush();
+                currentPath = path;
+                currentBuilder = new StringBuilder(capacity: Math.Min(diffText.Length, 4096));
+            }
+
+            if (currentBuilder is not null)
+            {
+                currentBuilder.Append(line);
+                currentBuilder.Append('\n');
+            }
+        }
+
+        Flush();
+
+        if (list.Count == 0)
+        {
+            return false;
+        }
+
+        payloads = list;
+        return true;
+    }
+
+    private static bool TryParseGitDiffHeaderPath(string line, out string path)
+    {
+        path = string.Empty;
+
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 4)
+        {
+            return false;
+        }
+
+        var aPath = NormalizeGitDiffPath(parts[2]);
+        var bPath = NormalizeGitDiffPath(parts[3]);
+
+        if (!string.IsNullOrWhiteSpace(bPath))
+        {
+            path = bPath;
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(aPath))
+        {
+            path = aPath;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? NormalizeGitDiffPath(string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var trimmed = candidate.Trim();
+        if (string.Equals(trimmed, "/dev/null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (trimmed.StartsWith("a/", StringComparison.Ordinal) || trimmed.StartsWith("b/", StringComparison.Ordinal))
+        {
+            return trimmed.Substring(2);
+        }
+
+        return trimmed;
+    }
+
+    private static bool TryExtractSinglePathFromDiffText(string diffText, out string path)
+    {
+        path = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(diffText))
+        {
+            return false;
+        }
+
+        var normalized = diffText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        foreach (var line in lines)
+        {
+            if (TryParseApplyPatchFileHeader(line, out path))
+            {
+                return true;
+            }
+
+            if (line.StartsWith("diff --git ", StringComparison.Ordinal) && TryParseGitDiffHeaderPath(line, out path))
+            {
+                return true;
+            }
+
+            if (TryParseUnifiedDiffHeaderPath(line, out path))
+            {
+                return true;
+            }
+        }
+
+        path = string.Empty;
+        return false;
+    }
+
+    private static bool TryParseUnifiedDiffHeaderPath(string line, out string path)
+    {
+        path = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        var trimmed = line.TrimStart();
+        if (trimmed.StartsWith("+++ ", StringComparison.Ordinal) || trimmed.StartsWith("--- ", StringComparison.Ordinal))
+        {
+            var candidate = trimmed.Substring(4).Trim();
+            candidate = NormalizeGitDiffPath(candidate);
+            if (!string.IsNullOrWhiteSpace(candidate))
+            {
+                path = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetFileChangePayload(
+        JsonElement item,
+        out string path,
+        out string? diff,
+        out int? added,
+        out int? removed)
+    {
+        path = string.Empty;
+        diff = null;
+        added = null;
+        removed = null;
+
+        if (!TryGetStringAny(item, out var pathValue, "path", "filePath", "file_path", "relativePath", "relative_path", "filename", "file"))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(pathValue))
+        {
+            return false;
+        }
+
+        path = pathValue.Trim();
+
+        if (TryGetStringAny(item, out var diffValue, "diff", "patch", "unifiedDiff", "unified_diff", "diffText", "diff_text"))
+        {
+            diff = diffValue;
+        }
+
+        if (TryGetInt32Any(item, out var addedValue, "added", "additions", "addedLines", "added_lines"))
+        {
+            added = addedValue;
+        }
+
+        if (TryGetInt32Any(item, out var removedValue, "removed", "deletions", "removedLines", "removed_lines"))
+        {
+            removed = removedValue;
+        }
+
+        return true;
+    }
+
+    private static bool TryGetFileChangePayloadsFromApprovalParams(
+        JsonElement @params,
+        out IReadOnlyList<FileChangePayload> payloads)
+    {
+        if (TryGetFileChangePayloads(@params, out payloads))
+        {
+            return true;
+        }
+
+        if (@params.ValueKind == JsonValueKind.Object)
+        {
+            if (@params.TryGetProperty("item", out var item) && item.ValueKind == JsonValueKind.Object)
+            {
+                if (TryGetFileChangePayloads(item, out payloads))
+                {
+                    return true;
+                }
+            }
+
+            if (@params.TryGetProperty("fileChange", out var fileChange) && fileChange.ValueKind == JsonValueKind.Object)
+            {
+                if (TryGetFileChangePayloads(fileChange, out payloads))
+                {
+                    return true;
+                }
+            }
+        }
+
+        payloads = Array.Empty<FileChangePayload>();
+        return false;
     }
 
     private static BridgeEnvelope CreateEvent(string name, object data) =>

@@ -185,6 +185,41 @@ public sealed class CodexSessionStoreTests
         }
     }
 
+    [Fact]
+    public void TryReadLatestSettings_ReadsLatestApprovalPolicyAndSandbox()
+    {
+        var sessionId = Guid.NewGuid().ToString();
+        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var dir = Path.Combine(sessionsRoot, "tests", "settings", DateTimeOffset.UtcNow.ToString("yyyyMMdd"), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var filePath = Path.Combine(dir, $"rollout-test-{sessionId}.jsonl");
+
+        try
+        {
+            File.WriteAllLines(
+                filePath,
+                new[]
+                {
+                    BuildSessionMetaLine(sessionId),
+                    BuildSettingsLine(approvalPolicy: "untrusted", sandboxMode: "read-only"),
+                    BuildSettingsLine(approvalPolicy: "never", sandboxMode: null),
+                    BuildSettingsLine(approvalPolicy: null, sandboxMode: "workspace-write"),
+                },
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+            var store = CreateStore();
+            var snapshot = store.TryReadLatestSettings(sessionId);
+
+            Assert.NotNull(snapshot);
+            Assert.Equal("never", snapshot!.ApprovalPolicy);
+            Assert.Equal("workspace-write", snapshot.Sandbox);
+        }
+        finally
+        {
+            TryDeleteFile(filePath);
+        }
+    }
+
     private static CodexSessionStore CreateStore()
     {
         var options = Options.Create(new CodexOptions());
@@ -209,6 +244,23 @@ public sealed class CodexSessionStoreTests
 
     private static string BuildFunctionCallOutputLine(string callId, string output) =>
         $"{{\"timestamp\":\"{DateTimeOffset.UtcNow:O}\",\"type\":\"response_item\",\"payload\":{{\"type\":\"function_call_output\",\"call_id\":{JsonString(callId)},\"output\":{JsonString(output)}}}}}";
+
+    private static string BuildSettingsLine(string? approvalPolicy, string? sandboxMode)
+    {
+        var parts = new List<string>(capacity: 2);
+        if (!string.IsNullOrWhiteSpace(approvalPolicy))
+        {
+            parts.Add($"\"approval_policy\":{JsonString(approvalPolicy)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sandboxMode))
+        {
+            parts.Add($"\"sandbox_mode\":{JsonString(sandboxMode)}");
+        }
+
+        var payload = string.Join(",", parts);
+        return $"{{\"timestamp\":\"{DateTimeOffset.UtcNow:O}\",\"type\":\"event_msg\",\"payload\":{{{payload}}}}}";
+    }
 
     private static string JsonString(string value) =>
         System.Text.Json.JsonSerializer.Serialize(value);

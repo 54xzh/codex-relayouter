@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 
 namespace codex_bridge.State;
@@ -89,6 +90,8 @@ public sealed class ChatSessionStore
     private readonly Dictionary<string, string> _runToSessionKey = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _runToClientId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ChatMessageViewModel> _runToMessage = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DiffSummarySnapshot> _pendingDiffSummaries = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _completedRuns = new(StringComparer.Ordinal);
     private DispatcherQueue? _dispatcherQueue;
     private string? _localClientId;
     private bool _chatPageActive;
@@ -215,6 +218,12 @@ public sealed class ChatSessionStore
             case "run.reasoning.delta":
                 HandleRunReasoningDelta(envelope.Data);
                 return;
+            case "diff.updated":
+                HandleDiffUpdated(envelope.Data);
+                return;
+            case "diff.summary":
+                HandleDiffSummary(envelope.Data);
+                return;
             case "run.plan.updated":
                 HandleRunPlanUpdated(envelope.Data);
                 return;
@@ -261,6 +270,7 @@ public sealed class ChatSessionStore
 
         _runToClientId[runId] = clientId;
         _runToSessionKey[runId] = sessionKey;
+        _completedRuns.Remove(runId);
 
         var session = GetSessionState(sessionKey);
         session.ActiveRunId = runId;
@@ -354,7 +364,7 @@ public sealed class ChatSessionStore
         {
             runMessage.Text = text;
             runMessage.RenderMarkdown = true;
-            runMessage.IsTraceExpanded = false;
+            runMessage.IsTraceExpanded = runMessage.Trace.Any(entry => entry.IsDiff);
             AttachImages(runMessage, images);
             SessionContentUpdated?.Invoke(this, sessionKey);
             return;
@@ -382,7 +392,8 @@ public sealed class ChatSessionStore
 
         var sessionKey = ResolveSessionKey(data, runId);
         var message = GetOrCreateRunMessage(runId, sessionKey);
-        if (string.Equals(message.Text, "思考中…", StringComparison.Ordinal))
+        if (string.Equals(message.Text, "思考中…", StringComparison.Ordinal)
+            && !message.Trace.Any(entry => entry.IsDiff))
         {
             message.IsTraceExpanded = false;
         }
@@ -424,6 +435,102 @@ public sealed class ChatSessionStore
         var exitCode = TryGetInt32(data, "exitCode", out var parsedExitCode) ? parsedExitCode : (int?)null;
         message.UpsertCommandTrace(itemId, tool: null, command, status, exitCode, output);
         SessionContentUpdated?.Invoke(this, sessionKey);
+    }
+
+    private void HandleDiffUpdated(JsonElement data)
+    {
+        if (!TryGetString(data, "runId", out var runId) || string.IsNullOrWhiteSpace(runId))
+        {
+            return;
+        }
+
+        if (!data.TryGetProperty("files", out var filesProp) || filesProp.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        runId = runId.Trim();
+        var sessionKey = ResolveSessionKey(data, runId);
+        var message = GetOrCreateRunMessage(runId, sessionKey);
+        var hasAnyDiff = false;
+
+        foreach (var file in filesProp.EnumerateArray())
+        {
+            if (file.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (!TryGetString(file, "path", out var path) || string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            var diff = GetOptionalString(file, "diff");
+            if (string.IsNullOrWhiteSpace(diff))
+            {
+                continue;
+            }
+
+            var added = TryGetInt32(file, "added", out var addedCount) ? addedCount : 0;
+            var removed = TryGetInt32(file, "removed", out var removedCount) ? removedCount : 0;
+            message.UpsertDiffTrace($"diff:{path.Trim()}", path.Trim(), diff, added, removed);
+            hasAnyDiff = true;
+        }
+
+        if (hasAnyDiff)
+        {
+            message.IsTraceExpanded = true;
+        }
+
+        SessionContentUpdated?.Invoke(this, sessionKey);
+    }
+
+    private void HandleDiffSummary(JsonElement data)
+    {
+        if (!TryGetString(data, "runId", out var runId) || string.IsNullOrWhiteSpace(runId))
+        {
+            return;
+        }
+
+        if (!data.TryGetProperty("files", out var filesProp) || filesProp.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        runId = runId.Trim();
+        var files = new List<DiffFileSummary>(filesProp.GetArrayLength());
+        foreach (var file in filesProp.EnumerateArray())
+        {
+            if (file.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (!TryGetString(file, "path", out var path) || string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            var added = TryGetInt32(file, "added", out var addedCount) ? addedCount : 0;
+            var removed = TryGetInt32(file, "removed", out var removedCount) ? removedCount : 0;
+            files.Add(new DiffFileSummary(path.Trim(), added, removed));
+        }
+
+        var totalAdded = TryGetInt32(data, "totalAdded", out var totalAddedCount) ? totalAddedCount : 0;
+        var totalRemoved = TryGetInt32(data, "totalRemoved", out var totalRemovedCount) ? totalRemovedCount : 0;
+        var summaryText = BuildDiffSummaryText(files, totalAdded, totalRemoved);
+        if (string.IsNullOrWhiteSpace(summaryText))
+        {
+            return;
+        }
+        _pendingDiffSummaries[runId] = new DiffSummarySnapshot(files, totalAdded, totalRemoved, summaryText);
+
+        if (_completedRuns.Contains(runId))
+        {
+            var sessionKey = ResolveSessionKey(data, runId);
+            AppendDiffSummaryIfReady(runId, sessionKey);
+        }
     }
 
     private void HandleRunCommandOutputDelta(JsonElement data)
@@ -581,6 +688,9 @@ public sealed class ChatSessionStore
             session.ActiveRunId = null;
         }
 
+        _completedRuns.Add(runId);
+        AppendDiffSummaryIfReady(runId, sessionKey);
+
         if (_runToMessage.TryGetValue(runId, out var message))
         {
             message.IsTraceExpanded = false;
@@ -620,6 +730,9 @@ public sealed class ChatSessionStore
             session.ActiveRunId = null;
         }
 
+        _completedRuns.Add(runId);
+        AppendDiffSummaryIfReady(runId, sessionKey);
+
         if (!IsCurrentConversation(sessionKey))
         {
             session.HasWarningBadge = true;
@@ -649,6 +762,75 @@ public sealed class ChatSessionStore
         SessionIndicatorChanged?.Invoke(this, sessionKey);
         SessionContentUpdated?.Invoke(this, sessionKey);
     }
+
+    private void AppendDiffSummaryIfReady(string runId, string sessionKey)
+    {
+        if (!_pendingDiffSummaries.TryGetValue(runId, out var summary))
+        {
+            return;
+        }
+
+        if (!_runToMessage.TryGetValue(runId, out var message))
+        {
+            return;
+        }
+
+        _pendingDiffSummaries.Remove(runId);
+
+        var text = message.Text ?? string.Empty;
+        if (string.Equals(text, "思考中…", StringComparison.Ordinal))
+        {
+            message.Text = summary.Text.TrimStart();
+        }
+        else
+        {
+            message.Text = string.Concat(text, summary.Text);
+        }
+
+        message.RenderMarkdown = true;
+        SessionContentUpdated?.Invoke(this, sessionKey);
+    }
+
+    private static string BuildDiffSummaryText(IReadOnlyList<DiffFileSummary> files, int totalAdded, int totalRemoved)
+    {
+        if (files.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine();
+        builder.AppendLine();
+        builder.AppendLine("---");
+        builder.AppendLine();
+        builder.AppendLine("变更汇总：");
+
+        foreach (var file in files)
+        {
+            builder.Append("- `");
+            builder.Append(file.Path);
+            builder.Append("` +");
+            builder.Append(file.Added);
+            builder.Append(" -");
+            builder.Append(file.Removed);
+            builder.AppendLine();
+        }
+
+        builder.AppendLine();
+        builder.Append("合计：+");
+        builder.Append(totalAdded);
+        builder.Append(" -");
+        builder.Append(totalRemoved);
+        return builder.ToString();
+    }
+
+    private sealed record DiffFileSummary(string Path, int Added, int Removed);
+
+    private sealed record DiffSummarySnapshot(
+        IReadOnlyList<DiffFileSummary> Files,
+        int TotalAdded,
+        int TotalRemoved,
+        string Text);
 
     private void EnsureRunSessionMapping(string runId, string sessionId)
     {

@@ -88,7 +88,14 @@ public sealed class ConnectionService : IAsyncDisposable
 
     public ConnectionService()
     {
-        CodexCliConfig.TryLoadModelAndReasoningEffort(out _model, out _effort);
+        CodexCliConfig.TryLoadModelReasoningEffortApprovalPolicyAndSandboxMode(
+            out _model,
+            out _effort,
+            out var approvalPolicy,
+            out var sandboxMode);
+
+        ApprovalPolicy = approvalPolicy;
+        Sandbox = sandboxMode;
         LoadRecentWorkingDirectories();
         _codexConfigWriteTimer = new Timer(_ => PersistCodexConfigFromTimer(), null, Timeout.Infinite, Timeout.Infinite);
 

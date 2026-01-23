@@ -58,7 +58,7 @@ dotnet run --project .\codex-relayouter-server\codex-relayouter-server.csproj --
 - Bridge Server 配置：[`codex-relayouter-server/appsettings.json`](codex-relayouter-server/appsettings.json)
   - `Bridge:Security:RemoteEnabled` 默认 `false`（仅允许回环）
   - 若开启远程访问：务必设置 `Bridge:Security:BearerToken`，并谨慎配置监听地址与网络边界
-- Codex 模型/思考深度：WinUI 会读取/写回 `~/.codex/config.toml`（键：`model`、`model_reasoning_effort`）
+- Codex 默认参数：WinUI 会从 `~/.codex/config.toml` 读取 `model`/`model_reasoning_effort`/`sandbox_mode`/`approval_policy`（其中 `model`/`model_reasoning_effort` 会在修改后写回）
 
 ---
 

@@ -9,6 +9,8 @@ internal static class CodexCliConfig
 {
     private const string ModelKey = "model";
     private const string ModelReasoningEffortKey = "model_reasoning_effort";
+    private const string ApprovalPolicyKey = "approval_policy";
+    private const string SandboxModeKey = "sandbox_mode";
 
     internal static string GetDefaultConfigPath()
     {
@@ -26,22 +28,68 @@ internal static class CodexCliConfig
         model = null;
         modelReasoningEffort = null;
 
-        var configPath = GetDefaultConfigPath();
-        if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
+        return TryLoadModelReasoningEffortApprovalPolicyAndSandboxMode(
+            out model,
+            out modelReasoningEffort,
+            out _,
+            out _);
+    }
+
+    internal static bool TryLoadApprovalPolicyAndSandboxMode(out string? approvalPolicy, out string? sandboxMode)
+    {
+        approvalPolicy = null;
+        sandboxMode = null;
+
+        return TryLoadModelReasoningEffortApprovalPolicyAndSandboxMode(
+            out _,
+            out _,
+            out approvalPolicy,
+            out sandboxMode);
+    }
+
+    internal static bool TryLoadModelReasoningEffortApprovalPolicyAndSandboxMode(
+        out string? model,
+        out string? modelReasoningEffort,
+        out string? approvalPolicy,
+        out string? sandboxMode)
+    {
+        model = null;
+        modelReasoningEffort = null;
+        approvalPolicy = null;
+        sandboxMode = null;
+
+        return TryLoadRootSettings(out model, out modelReasoningEffort, out approvalPolicy, out sandboxMode);
+    }
+
+    private static bool TryLoadRootSettings(
+        out string? model,
+        out string? modelReasoningEffort,
+        out string? approvalPolicy,
+        out string? sandboxMode)
+    {
+        model = null;
+        modelReasoningEffort = null;
+        approvalPolicy = null;
+        sandboxMode = null;
+
+        var path = GetDefaultConfigPath();
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             return true;
         }
 
         try
         {
-            var content = ReadAllTextDetectEncoding(configPath);
-            ParseRootModelAndEffort(content, out model, out modelReasoningEffort);
+            var loaded = ReadAllTextDetectEncoding(path);
+            ParseRootSettings(loaded, out model, out modelReasoningEffort, out approvalPolicy, out sandboxMode);
             return true;
         }
         catch
         {
             model = null;
             modelReasoningEffort = null;
+            approvalPolicy = null;
+            sandboxMode = null;
             return false;
         }
     }
@@ -108,10 +156,17 @@ internal static class CodexCliConfig
         File.Move(tempPath, path, overwrite: true);
     }
 
-    private static void ParseRootModelAndEffort(string content, out string? model, out string? modelReasoningEffort)
+    private static void ParseRootSettings(
+        string content,
+        out string? model,
+        out string? modelReasoningEffort,
+        out string? approvalPolicy,
+        out string? sandboxMode)
     {
         model = null;
         modelReasoningEffort = null;
+        approvalPolicy = null;
+        sandboxMode = null;
 
         foreach (var line in EnumerateLines(content))
         {
@@ -135,6 +190,18 @@ internal static class CodexCliConfig
             if (TryParseRootStringKeyValue(trimmed, ModelReasoningEffortKey, out var parsedEffort))
             {
                 modelReasoningEffort = parsedEffort;
+                continue;
+            }
+
+            if (TryParseRootStringKeyValue(trimmed, ApprovalPolicyKey, out var parsedApprovalPolicy))
+            {
+                approvalPolicy = parsedApprovalPolicy;
+                continue;
+            }
+
+            if (TryParseRootStringKeyValue(trimmed, SandboxModeKey, out var parsedSandboxMode))
+            {
+                sandboxMode = parsedSandboxMode;
             }
         }
     }

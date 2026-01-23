@@ -247,6 +247,13 @@ public sealed class WebSocketHub
         TryGetBoolean(envelope.Data, "skipGitRepoCheck", out var skipGitRepoCheck);
         var runId = Guid.NewGuid().ToString("N");
 
+        if (string.IsNullOrWhiteSpace(sandbox) || string.IsNullOrWhiteSpace(approvalPolicy))
+        {
+            var (defaultApprovalPolicy, defaultSandbox) = ResolveDefaultRunSettings(sessionId);
+            sandbox = string.IsNullOrWhiteSpace(sandbox) ? defaultSandbox : sandbox;
+            approvalPolicy = string.IsNullOrWhiteSpace(approvalPolicy) ? defaultApprovalPolicy : approvalPolicy;
+        }
+
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var run = new RunContext(runId, clientId, sessionId, cts);
         _runs[runId] = run;
@@ -411,6 +418,30 @@ public sealed class WebSocketHub
 
     private static string? NormalizeSessionId(string? sessionId) =>
         string.IsNullOrWhiteSpace(sessionId) ? null : sessionId.Trim();
+
+    private (string? approvalPolicy, string? sandbox) ResolveDefaultRunSettings(string? sessionId)
+    {
+        string? approvalPolicy = null;
+        string? sandbox = null;
+
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            var snapshot = _sessionStore.TryReadLatestSettings(sessionId);
+            approvalPolicy = snapshot?.ApprovalPolicy;
+            sandbox = snapshot?.Sandbox;
+        }
+
+        if (approvalPolicy is null || sandbox is null)
+        {
+            if (CodexCliConfig.TryLoadApprovalPolicyAndSandboxMode(out var configApprovalPolicy, out var configSandbox))
+            {
+                approvalPolicy ??= configApprovalPolicy;
+                sandbox ??= configSandbox;
+            }
+        }
+
+        return (approvalPolicy, sandbox);
+    }
 
     private async Task<CodexAppServerApprovalDecision> RequestApprovalAsync(
         string runId,

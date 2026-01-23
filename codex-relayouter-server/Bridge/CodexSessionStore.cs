@@ -11,6 +11,7 @@ public sealed class CodexSessionStore
     private readonly ILogger<CodexSessionStore> _logger;
     private readonly CodexCliInfo _cliInfo;
     private const string PlaceholderAssistantText = "（未输出正文）";
+    private const int SettingsScanMaxBytes = 2 * 1024 * 1024;
     private const string TaskTitleGeneratorPromptPrefix =
         "You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title for a task that will be created from that prompt.";
 
@@ -468,6 +469,29 @@ public sealed class CodexSessionStore
         {
             _logger.LogWarning(ex, "读取会话消息失败: {SessionId}", sessionId);
             return Array.Empty<CodexSessionMessage>();
+        }
+    }
+
+    public CodexSessionSettingsSnapshot? TryReadLatestSettings(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        var sessionFilePath = TryGetSessionFilePath(sessionId);
+        if (string.IsNullOrWhiteSpace(sessionFilePath) || !File.Exists(sessionFilePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return ReadLatestSettingsFromSessionFile(sessionFilePath);
+        }
+        catch
+        {
+            return new CodexSessionSettingsSnapshot();
         }
     }
 
@@ -1013,6 +1037,135 @@ public sealed class CodexSessionStore
     {
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return Path.Combine(userProfile, ".codex", "sessions");
+    }
+
+    private static CodexSessionSettingsSnapshot ReadLatestSettingsFromSessionFile(string sessionFilePath)
+    {
+        var tail = ReadTailText(sessionFilePath, maxBytes: SettingsScanMaxBytes);
+        if (string.IsNullOrWhiteSpace(tail))
+        {
+            return new CodexSessionSettingsSnapshot();
+        }
+
+        var lines = tail.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        string? approvalPolicy = null;
+        string? sandbox = null;
+
+        for (var i = lines.Length - 1; i >= 0; i--)
+        {
+            if (approvalPolicy is not null && sandbox is not null)
+            {
+                break;
+            }
+
+            var line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            if (!line.Contains("approval", StringComparison.OrdinalIgnoreCase)
+                && !line.Contains("sandbox", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                ExtractSettingsFromJson(doc.RootElement, ref approvalPolicy, ref sandbox);
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return new CodexSessionSettingsSnapshot
+        {
+            ApprovalPolicy = approvalPolicy,
+            Sandbox = sandbox,
+        };
+    }
+
+    private static void ExtractSettingsFromJson(JsonElement element, ref string? approvalPolicy, ref string? sandbox)
+    {
+        if (approvalPolicy is null)
+        {
+            if (TryGetStringRecursive(element, "approval_policy", out var parsed)
+                || TryGetStringRecursive(element, "approvalPolicy", out parsed))
+            {
+                approvalPolicy = NormalizeSettingValue(parsed);
+            }
+        }
+
+        if (sandbox is null)
+        {
+            if (TryGetStringRecursive(element, "sandbox_mode", out var parsed)
+                || TryGetStringRecursive(element, "sandboxMode", out parsed)
+                || TryGetStringRecursive(element, "sandbox", out parsed))
+            {
+                sandbox = NormalizeSettingValue(parsed);
+            }
+        }
+    }
+
+    private static string? NormalizeSettingValue(string value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static bool TryGetStringRecursive(JsonElement element, string propertyName, out string value)
+    {
+        value = string.Empty;
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.Ordinal)
+                    && property.Value.ValueKind == JsonValueKind.String)
+                {
+                    var candidate = property.Value.GetString();
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        value = candidate;
+                        return true;
+                    }
+                }
+
+                if (TryGetStringRecursive(property.Value, propertyName, out value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                if (TryGetStringRecursive(item, propertyName, out value))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static string ReadTailText(string path, int maxBytes)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var length = stream.Length;
+        var offset = Math.Max(0, length - maxBytes);
+        stream.Seek(offset, SeekOrigin.Begin);
+
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 16 * 1024, leaveOpen: false);
+        return reader.ReadToEnd();
     }
 
     private static bool HasUtf8Bom(string path)

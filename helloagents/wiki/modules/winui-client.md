@@ -5,6 +5,7 @@
 
 ## 模块概述
 - **职责:** UI 渲染、用户输入、与 Bridge Server 通信、diff 展示与应用控制
+- **特性:** Chat 执行过程中展示 diff（自动展开 Trace），结束时输出变更汇总（按文件净变化）
 - **状态:** 开发中
 - **最后更新:** 2026-01-23
 
@@ -36,8 +37,9 @@ Chat 回复正文支持 Markdown 渲染（使用 `CommunityToolkit.WinUI.UI.Cont
 为提升可读性与快速识别文件类型：当行内代码被识别为文件路径时，会在文件名前增加类型图标，并区分 Markdown（`.md/.markdown/.mdx`）、代码文件（多语言扩展名集合）、文件夹、其他/通用文件。
 为提升兼容性，客户端会对 Markdown 做轻量规范化：当检测到列表行存在 1-3 个前导空格（例如 `  - item`）时会去缩进，并在“标签行(:/：) 后紧跟列表”时自动补空行；当检测到只包含 `─` 的分隔线（如 `────`）且后续紧跟文本行时，会自动补一个空行避免被合并；并将普通段落的单换行按“硬换行”处理（尽量做到 `\n` 就换行，避开 fenced code block 与缩进代码块）；另外会将行内出现的 fence marker（```/~~~）转义为字面量，避免 `MarkdownTextBlock` 在同一段落里出现多个 ``` 时发生贪婪匹配导致整段误判为代码。
 Chat 页右下角提供“上下文用量”入口：以文本标签形式显示上下文用量百分比（无数据为 `-%`，右侧带圆形进度条可视化）；点击后以 Flyout 菜单展示后端连接状态 + `/status` 摘要（5h/周限额以进度条可视化，重置时间格式 `MM-dd HH:mm`；限额不可用时自动隐藏，并随内容自动收缩卡片大小；其他缺失项显示“不可用”）。
-Chat 页支持配置 `model`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
-其中 `model` 与 `effort` 会自动从 `~/.codex/config.toml` 读取（键：`model`、`model_reasoning_effort`），并在 Chat 页/设置页修改后写回（debounce）。
+Chat 页支持配置 `model`、`sandbox`、`approvalPolicy`（权限模式）与 `effort`（思考深度），并在需要时弹出审批对话框（允许/拒绝/取消任务）。
+新会话默认会从 `~/.codex/config.toml` 读取 `model`/`model_reasoning_effort`/`sandbox_mode`/`approval_policy`；其中 `model` 与 `effort` 在 Chat 页/设置页修改后会 debounce 写回，`sandbox`/`approvalPolicy` 当前仅作为应用配置与会话覆盖。
+加载历史会话时，客户端会调用 `GET /api/v1/sessions/{sessionId}/settings` 从该会话文件提取最新 `sandbox/approvalPolicy` 并回填到会话级覆盖。
 
 #### 场景: 切换页面/对话不中断
 Chat 页的消息/计划/运行状态由全局 `ChatSessionStore` 缓存并驱动 UI，避免页面重建导致“正文为空但仍在更新”的观感问题。

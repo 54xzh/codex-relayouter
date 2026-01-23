@@ -17,6 +17,7 @@
 - 新增运行链路（app-server）：Bridge Server 改用 `codex app-server`（JSON-RPC）以支持审批请求与 delta 流式事件；WinUI Chat 页增加 `approvalPolicy/effort` 选择与审批弹窗
 - 新增待办计划（turn plan）：Bridge Server 转发 `turn/plan/updated` 为 `run.plan.updated` 并缓存最新计划；新增 `GET /api/v1/sessions/{sessionId}/plan`；WinUI Chat 页新增“待办/计划”面板并支持进入会话回填
 - 新增 WinUI：`model` / `model_reasoning_effort` 自动读取 `~/.codex/config.toml`，并在 Chat 页/设置页修改后写回
+- 新增会话权限默认值读取：新会话从 `~/.codex/config.toml` 读取 `approval_policy`/`sandbox_mode`；续聊/历史会话从 session 文件提取最新值；并新增 `GET /api/v1/sessions/{sessionId}/settings`
 - 新增 WinUI：Chat 页工作区按钮显示目录名（basename），菜单支持资源管理器打开/重新选择，并展示最近 5 条 cwd（完整路径）以便快速切换
 - 新增 WinUI：选择已有会话后自动使用该会话的 `cwd` 作为 workingDirectory
 - 新增图片能力：Chat 页支持选择并发送图片（`chat.send(images)`），Bridge Server 转发到 app-server 并在会话回放接口返回 `images`（data URL），WinUI 可解码显示 session 中的 base64 图片
@@ -30,6 +31,7 @@
 - 新增多任务并行：Bridge Server 支持跨会话并行 run（同会话串行闸门），并在关键事件中附带 `sessionId` 便于客户端路由
 - 新增 WinUI 会话状态指示：侧边栏会话项右侧显示运行中 ProgressRing；完成绿点；异常黄点
 - 新增 WinUI 设置页：查看后端日志（采集 Bridge Server stdout/stderr 到本地日志文件，并支持刷新/复制/打开日志文件夹）
+- 新增运行内联 diff：Bridge Server 推送 `diff.updated/diff.summary`，Chat 页在执行过程中展示 diff，并在输出末尾追加变更汇总（按文件净变化统计）
 
 ### 变更
 - 项目更名：`codex-bridge` → `codex-relayouter`（更新文档与应用展示名、配对二维码链接 scheme、本地数据目录等，避免与同名项目混淆）
@@ -63,6 +65,8 @@
 - 修复 Bridge Server 在客户端异常断开 WebSocket 时被 Kestrel 记录为未处理异常：ReceiveLoop 捕获 `WebSocketException/OperationCanceledException`
 - 修复 WinUI Chat 页执行过程（Trace）增量更新时，处于列表底部不会自动跟随滚动的问题
 - 修复 WinUI Chat 页输出正文后 Trace 未自动折叠的问题
+- 修复运行内联 diff 不易发现：当存在 diff trace 时保持 Trace 展开，并在收到 `diff.updated` 时强制展开
+- 修复 app-server fileChange diff 解析不稳定：兼容 `files/changes` 数组与合并 patch 的拆分，尽可能产出 `diff.updated`
 - 修复新建会话缺少 `cwd` 导致 `codex exec resume` 报错：创建时强制写入 `cwd`，并在 resume 时自动补写缺失值（使用 workingDirectory）
 - 修复会话 `session_meta` 缺少 Codex 必填字段 `cli_version` 导致 resume 失败：创建时写入并在必要时自动补写
 - 修复 `codex exec resume` 场景下传递 `--sandbox workspace-write` 报参数解析错误（exitCode=2）：将 `resume` 子命令放到 exec options 之后传参

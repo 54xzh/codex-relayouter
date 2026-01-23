@@ -733,7 +733,6 @@ namespace codex_bridge
                 "chat" => typeof(ChatPage),
                 "sessions" => typeof(SessionsPage),
                 "connections" => typeof(ConnectionsPage),
-                "diff" => typeof(DiffPage),
                 "settings" => typeof(SettingsPage),
                 _ => typeof(ChatPage),
             };

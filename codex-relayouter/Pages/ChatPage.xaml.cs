@@ -937,6 +937,7 @@ public sealed partial class ChatPage : Page
 
         try
         {
+            _ = LoadSessionSettingsIfNeededAsync(sessionId, sessionState, baseUri);
             SetSessionStatus("加载会话历史…");
 
             var path = $"api/v1/sessions/{Uri.EscapeDataString(sessionId)}/messages?limit=500";
@@ -1020,6 +1021,72 @@ public sealed partial class ChatPage : Page
         catch (Exception ex)
         {
             SetSessionStatus($"加载历史失败: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSessionSettingsIfNeededAsync(string sessionId, ChatSessionState sessionState, Uri baseUri)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sessionState.SandboxOverride)
+            && !string.IsNullOrWhiteSpace(sessionState.ApprovalPolicyOverride))
+        {
+            return;
+        }
+
+        try
+        {
+            var path = $"api/v1/sessions/{Uri.EscapeDataString(sessionId)}/settings";
+            var uri = new Uri(baseUri, path);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            var token = App.ConnectionService.BearerToken;
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
+            using var response = await _httpClient.SendAsync(request, CancellationToken.None);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
+            var snapshot = JsonSerializer.Deserialize<SessionSettingsSnapshot>(json, JsonOptions);
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            var changed = false;
+
+            if (string.IsNullOrWhiteSpace(sessionState.SandboxOverride)
+                && !string.IsNullOrWhiteSpace(snapshot.Sandbox))
+            {
+                sessionState.SandboxOverride = snapshot.Sandbox.Trim();
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(sessionState.ApprovalPolicyOverride)
+                && !string.IsNullOrWhiteSpace(snapshot.ApprovalPolicy))
+            {
+                sessionState.ApprovalPolicyOverride = snapshot.ApprovalPolicy.Trim();
+                changed = true;
+            }
+
+            if (changed && string.Equals(App.SessionState.CurrentSessionId, sessionId, StringComparison.Ordinal))
+            {
+                ApplyConnectionSettingsToUi();
+            }
+        }
+        catch
+        {
         }
     }
 

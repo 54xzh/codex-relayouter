@@ -444,6 +444,21 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         Trace.Add(created);
     }
 
+    public void UpsertDiffTrace(string id, string path, string diff, int added, int removed)
+    {
+        if (_traceById.TryGetValue(id, out var existing) && existing.IsDiff)
+        {
+            existing.UpdateDiff(path, diff, added, removed);
+            existing.IsExpanded = true;
+            return;
+        }
+
+        var created = TraceEntryViewModel.CreateDiff(id, path, diff, added, removed);
+        created.IsExpanded = true;
+        _traceById[id] = created;
+        Trace.Add(created);
+    }
+
     public void AddReasoningTrace(string id, string text)
     {
         UpsertReasoningTrace(id, text);

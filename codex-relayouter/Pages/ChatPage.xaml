@@ -273,6 +273,34 @@
                                                         </ScrollViewer>
                                                     </Expander>
 
+                                                    <!-- Diff 类型 -->
+                                                    <Expander
+                                                        IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                                                        Visibility="{x:Bind IsDiff, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch">
+                                                        <Expander.Header>
+                                                            <TextBlock
+                                                                FontFamily="{StaticResource ChineseUIFont}"
+                                                                Margin="0,10,0,10"
+                                                                Text="{x:Bind DiffHeader, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                LineHeight="22"
+                                                                LineStackingStrategy="BlockLineHeight" />
+                                                        </Expander.Header>
+                                                        <ScrollViewer
+                                                            MaxHeight="360"
+                                                            Margin="0,4,0,0"
+                                                            Visibility="{x:Bind HasDiff, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock
+                                                                FontFamily="Consolas"
+                                                                Text="{x:Bind DiffText, Mode=OneWay}"
+                                                                TextWrapping="Wrap"
+                                                                LineHeight="20"
+                                                                LineStackingStrategy="BlockLineHeight" />
+                                                        </ScrollViewer>
+                                                    </Expander>
+
                                                     <!-- 推理类型 -->
                                                     <Expander
                                                         IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
