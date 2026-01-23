@@ -31,14 +31,26 @@ public sealed class DiffRunTracker
 
         var normalizedPath = path.Trim();
         var diffText = string.IsNullOrWhiteSpace(diff) ? null : diff;
-        var addedCount = added ?? 0;
-        var removedCount = removed ?? 0;
+        var hasProvidedCounts = added.HasValue || removed.HasValue;
+        var providedAdded = added ?? 0;
+        var providedRemoved = removed ?? 0;
+        var addedCount = providedAdded;
+        var removedCount = providedRemoved;
 
         if (!string.IsNullOrWhiteSpace(diffText))
         {
             var (calcAdded, calcRemoved) = DiffStatsCalculator.CountUnifiedDiffLines(diffText);
-            addedCount = calcAdded;
-            removedCount = calcRemoved;
+            if (calcAdded == 0 && calcRemoved == 0 && hasProvidedCounts && (providedAdded != 0 || providedRemoved != 0))
+            {
+                // diff 文本不包含可统计的 +/- 行，但上游给了非零计数（例如二进制/元数据变更的摘要），保留上游计数。
+                addedCount = providedAdded;
+                removedCount = providedRemoved;
+            }
+            else
+            {
+                addedCount = calcAdded;
+                removedCount = calcRemoved;
+            }
         }
 
         var snapshot = new DiffFileSnapshot(normalizedPath, diffText, addedCount, removedCount);

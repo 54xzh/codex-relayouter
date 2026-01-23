@@ -14,6 +14,7 @@
 - 新增会话体验增强：会话列表标题取首条 user 消息（截断约 50 字）；Chat 页自动加载会话历史（`/api/v1/sessions/{sessionId}/messages`）
 - 新增运行追踪事件：Bridge Server 解析 `command_execution` / `reasoning` 并广播 `run.command` / `run.reasoning`，WinUI Chat 页以可展开区块展示“执行的命令”和“思考摘要”
 - 新增会话回放 trace：`/api/v1/sessions/{sessionId}/messages` 的 assistant 消息可附带 `trace`（思考摘要/命令），并在 WinUI Chat 页按时间顺序展示
+- 新增 Android：聊天页支持展示“执行过程（Trace）”（思考摘要/执行命令/内联 diff），并与 Windows 端折叠策略对齐；同时移除 assistant 消息气泡背景（文字直出）
 - 新增运行链路（app-server）：Bridge Server 改用 `codex app-server`（JSON-RPC）以支持审批请求与 delta 流式事件；WinUI Chat 页增加 `approvalPolicy/effort` 选择与审批弹窗
 - 新增待办计划（turn plan）：Bridge Server 转发 `turn/plan/updated` 为 `run.plan.updated` 并缓存最新计划；新增 `GET /api/v1/sessions/{sessionId}/plan`；WinUI Chat 页新增“待办/计划”面板并支持进入会话回填
 - 新增 WinUI：`model` / `model_reasoning_effort` 自动读取 `~/.codex/config.toml`，并在 Chat 页/设置页修改后写回
@@ -67,6 +68,7 @@
 - 修复 WinUI Chat 页输出正文后 Trace 未自动折叠的问题
 - 修复运行内联 diff 不易发现：当存在 diff trace 时保持 Trace 展开，并在收到 `diff.updated` 时强制展开
 - 修复 app-server fileChange diff 解析不稳定：兼容 `files/changes` 数组与合并 patch 的拆分，尽可能产出 `diff.updated`
+- 修复变更统计出现 `+0 -0` 的可理解性问题：当无法统计行级差异时在汇总中标注原因，并在必要时保留上游非零计数
 - 修复新建会话缺少 `cwd` 导致 `codex exec resume` 报错：创建时强制写入 `cwd`，并在 resume 时自动补写缺失值（使用 workingDirectory）
 - 修复会话 `session_meta` 缺少 Codex 必填字段 `cli_version` 导致 resume 失败：创建时写入并在必要时自动补写
 - 修复 `codex exec resume` 场景下传递 `--sandbox workspace-write` 报参数解析错误（exitCode=2）：将 `resume` 子命令放到 exec options 之后传参

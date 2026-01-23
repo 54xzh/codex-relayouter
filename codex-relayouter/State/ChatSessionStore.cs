@@ -813,6 +813,10 @@ public sealed class ChatSessionStore
             builder.Append(file.Added);
             builder.Append(" -");
             builder.Append(file.Removed);
+            if (file.Added == 0 && file.Removed == 0)
+            {
+                builder.Append(" （无可统计的行变更/可能是重命名或二进制变更）");
+            }
             builder.AppendLine();
         }
 
