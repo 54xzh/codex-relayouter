@@ -12,6 +12,7 @@
 
     <Page.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <conv:DiffLineBackgroundConverter x:Key="DiffLineBackgroundConverter" />
         <FontFamily x:Key="ChineseUIFont">Microsoft YaHei UI,Microsoft YaHei,Segoe UI</FontFamily>
         <SolidColorBrush x:Key="MarkdownCodeBlockBackgroundBrush" Color="#FFF6F8FA" />
         <SolidColorBrush x:Key="MarkdownCodeBlockBorderBrush" Color="#FFB6C2CF" />
@@ -291,13 +292,25 @@
                                                         <ScrollViewer
                                                             MaxHeight="360"
                                                             Margin="0,4,0,0"
+                                                            HorizontalScrollBarVisibility="Auto"
+                                                            VerticalScrollBarVisibility="Auto"
                                                             Visibility="{x:Bind HasDiff, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <TextBlock
-                                                                FontFamily="Consolas"
-                                                                Text="{x:Bind DiffText, Mode=OneWay}"
-                                                                TextWrapping="Wrap"
-                                                                LineHeight="20"
-                                                                LineStackingStrategy="BlockLineHeight" />
+                                                            <ItemsControl ItemsSource="{x:Bind DiffLines, Mode=OneWay}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate x:DataType="vm:DiffLineViewModel">
+                                                                        <Border
+                                                                            Background="{x:Bind Kind, Mode=OneWay, Converter={StaticResource DiffLineBackgroundConverter}}"
+                                                                            Padding="4,0,4,0">
+                                                                            <TextBlock
+                                                                                FontFamily="Consolas"
+                                                                                Text="{x:Bind DisplayText, Mode=OneWay}"
+                                                                                TextWrapping="NoWrap"
+                                                                                LineHeight="20"
+                                                                                LineStackingStrategy="BlockLineHeight" />
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
                                                         </ScrollViewer>
                                                     </Expander>
 

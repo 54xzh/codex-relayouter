@@ -1,5 +1,6 @@
 // TraceEntryViewModel：聊天页 trace 条目（命令/思考等）。
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -104,10 +105,13 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
             _diffText = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasDiff));
+            RebuildDiffLines(_diffText);
         }
     }
 
     public bool HasDiff => !string.IsNullOrWhiteSpace(DiffText);
+
+    public ObservableCollection<DiffLineViewModel> DiffLines { get; } = new();
 
     public string DiffHeader
     {
@@ -313,6 +317,23 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
         if (!string.IsNullOrWhiteSpace(diff))
         {
             DiffText = diff;
+        }
+    }
+
+    private void RebuildDiffLines(string? diffText)
+    {
+        DiffLines.Clear();
+
+        if (string.IsNullOrWhiteSpace(diffText))
+        {
+            return;
+        }
+
+        var normalized = diffText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        foreach (var line in lines)
+        {
+            DiffLines.Add(new DiffLineViewModel(line, DiffLineViewModel.Classify(line)));
         }
     }
 
