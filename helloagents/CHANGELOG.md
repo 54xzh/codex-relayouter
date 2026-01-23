@@ -29,6 +29,7 @@
 - 新增“连接”功能：WinUI 侧边栏底部新增“连接”页（局域网共享开关/配对二维码/设备列表/撤销）；Bridge Server 支持设备配对与设备令牌鉴权；Android 支持配对并同步会话/消息/流式输出/plan
 - 新增多任务并行：Bridge Server 支持跨会话并行 run（同会话串行闸门），并在关键事件中附带 `sessionId` 便于客户端路由
 - 新增 WinUI 会话状态指示：侧边栏会话项右侧显示运行中 ProgressRing；完成绿点；异常黄点
+- 新增 WinUI 设置页：查看后端日志（采集 Bridge Server stdout/stderr 到本地日志文件，并支持刷新/复制/打开日志文件夹）
 
 ### 变更
 - 项目更名：`codex-bridge` → `codex-relayouter`（更新文档与应用展示名、配对二维码链接 scheme、本地数据目录等，避免与同名项目混淆）

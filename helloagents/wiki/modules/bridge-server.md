@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** 会话与运行管理、工作区管理、Codex 进程驱动（app-server JSON-RPC + JSONL 回放解析）、事件广播、鉴权与远程开关
 - **状态:** 开发中
-- **最后更新:** 2026-01-22
+- **最后更新:** 2026-01-23
 
 ## 规范
 
@@ -24,6 +24,7 @@ WinUI/Android 同时连接时，服务端广播同一会话的消息与运行事
 
 #### 场景: 作为 WinUI Sidecar 自动启动
 Bridge Server 可随 WinUI 构建产物一同分发到 `bridge-server/` 目录，由 WinUI 自动启动并通过 `/api/v1/health` 探测就绪后再建立 WS 连接。
+补充：WinUI 启动时会将 Bridge Server 的 stdout/stderr 采集写入 `%LOCALAPPDATA%\\codex-relayouter\\logs\\bridge-server.log`，便于排障（设置页可查看）。
 
 #### 场景: MSIX 调试部署/发布
 Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；WinUI 构建时会将后端输出同步到 MSIX 布局目录以保证部署后可执行。

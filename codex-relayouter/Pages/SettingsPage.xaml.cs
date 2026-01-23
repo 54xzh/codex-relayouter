@@ -3,10 +3,15 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using codex_bridge.IO;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
+using Windows.Storage;
+using Windows.System;
 
 namespace codex_bridge.Pages;
 
@@ -228,6 +233,129 @@ public sealed partial class SettingsPage : Page
     private void SetStatus(string text)
     {
         StatusTextBlock.Text = text;
+    }
+
+    private async void ViewBackendLogsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await App.BackendServer.EnsureStartedAsync();
+        }
+        catch
+        {
+        }
+
+        var logPath = App.BackendServer.LogFilePath;
+
+        var header = new TextBlock
+        {
+            Text = logPath,
+            Opacity = 0.7,
+            TextWrapping = TextWrapping.Wrap,
+        };
+
+        var openFolder = new HyperlinkButton
+        {
+            Content = "打开日志文件夹",
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+
+        var logBox = new TextBox
+        {
+            FontFamily = new FontFamily("Consolas"),
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.NoWrap,
+            MinHeight = 320,
+        };
+        ScrollViewer.SetVerticalScrollBarVisibility(logBox, ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(logBox, ScrollBarVisibility.Auto);
+
+        var panel = new StackPanel
+        {
+            Spacing = 8,
+        };
+        panel.Children.Add(header);
+        panel.Children.Add(openFolder);
+        panel.Children.Add(logBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = "后端日志",
+            Content = panel,
+            PrimaryButtonText = "刷新",
+            SecondaryButtonText = "复制",
+            CloseButtonText = "关闭",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = Content.XamlRoot,
+        };
+
+        async Task RefreshAsync()
+        {
+            try
+            {
+                var info = File.Exists(logPath) ? new FileInfo(logPath) : null;
+                if (info is not null)
+                {
+                    header.Text = $"{logPath}（{info.Length / 1024:N0} KB，{info.LastWriteTime:yyyy-MM-dd HH:mm:ss}）";
+                }
+                else
+                {
+                    header.Text = logPath;
+                }
+
+                var text = await LogTailReader.ReadTailAsync(logPath, maxBytes: 256 * 1024, maxLines: 2000);
+                logBox.Text = string.IsNullOrWhiteSpace(text) ? "暂无日志。" : text;
+                logBox.SelectionStart = logBox.Text.Length;
+                logBox.SelectionLength = 0;
+            }
+            catch (Exception ex)
+            {
+                logBox.Text = $"读取日志失败: {ex.Message}";
+            }
+        }
+
+        openFolder.Click += async (_, _) =>
+        {
+            try
+            {
+                var folderPath = Path.GetDirectoryName(logPath);
+                if (string.IsNullOrWhiteSpace(folderPath))
+                {
+                    return;
+                }
+
+                var folder = await StorageFolder.GetFolderFromPathAsync(folderPath);
+                await Launcher.LaunchFolderAsync(folder);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"打开文件夹失败: {ex.Message}");
+            }
+        };
+
+        dialog.PrimaryButtonClick += async (_, args) =>
+        {
+            args.Cancel = true;
+            await RefreshAsync();
+        };
+
+        dialog.SecondaryButtonClick += (_, args) =>
+        {
+            args.Cancel = true;
+            try
+            {
+                var data = new DataPackage();
+                data.SetText(logBox.Text ?? string.Empty);
+                Clipboard.SetContent(data);
+            }
+            catch
+            {
+            }
+        };
+
+        await RefreshAsync();
+        await dialog.ShowAsync();
     }
 
     private static void SetComboByTag(ComboBox combo, string? tag)

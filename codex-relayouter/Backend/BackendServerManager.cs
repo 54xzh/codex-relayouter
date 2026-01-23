@@ -14,6 +14,122 @@ namespace codex_bridge.Backend;
 
 public sealed class BackendServerManager : IAsyncDisposable
 {
+    private sealed class BackendProcessLogCapture : IDisposable
+    {
+        private readonly object _writeGate = new();
+        private readonly Process _process;
+        private readonly StreamWriter _writer;
+        private readonly DataReceivedEventHandler _stdoutHandler;
+        private readonly DataReceivedEventHandler _stderrHandler;
+        private bool _disposed;
+
+        public BackendProcessLogCapture(Process process, string logFilePath, Encoding encoding)
+        {
+            _process = process;
+            var dir = Path.GetDirectoryName(logFilePath);
+            if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            var stream = new FileStream(logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            _writer = new StreamWriter(stream, encoding)
+            {
+                AutoFlush = true,
+            };
+
+            _writer.WriteLine($"===== bridge-server start {DateTimeOffset.Now:O} pid={process.Id} =====");
+
+            _stdoutHandler = (_, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Write("OUT", e.Data);
+                }
+            };
+            _stderrHandler = (_, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Write("ERR", e.Data);
+                }
+            };
+
+            process.OutputDataReceived += _stdoutHandler;
+            process.ErrorDataReceived += _stderrHandler;
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+        }
+
+        private void Write(string channel, string message)
+        {
+            lock (_writeGate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _writer.WriteLine($"{DateTimeOffset.Now:O} [{channel}] {message}");
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_writeGate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+
+                try
+                {
+                    _writer.WriteLine($"===== bridge-server stop {DateTimeOffset.Now:O} =====");
+                }
+                catch
+                {
+                }
+            }
+
+            try
+            {
+                _process.OutputDataReceived -= _stdoutHandler;
+                _process.ErrorDataReceived -= _stderrHandler;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _process.CancelOutputRead();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _process.CancelErrorRead();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _writer.Dispose();
+            }
+            catch
+            {
+            }
+        }
+    }
+
     private sealed class BackendServerPreferences
     {
         public bool LanEnabled { get; set; }
@@ -29,16 +145,24 @@ public sealed class BackendServerManager : IAsyncDisposable
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
     private readonly object _gate = new();
+    private readonly string _appDir;
     private readonly string _preferencesPath;
+    private readonly string _logsDir;
+    private readonly string _logFilePath;
     private Task? _startTask;
     private CancellationTokenSource? _lifetimeCts;
     private Process? _process;
+    private BackendProcessLogCapture? _logCapture;
     private bool _lanEnabled;
     private int? _port;
 
     public Uri? HttpBaseUri { get; private set; }
 
     public Uri? WebSocketUri { get; private set; }
+
+    public string LogFilePath => _logFilePath;
+
+    public string LogsDirectoryPath => _logsDir;
 
     public bool IsLanEnabled
     {
@@ -54,8 +178,10 @@ public sealed class BackendServerManager : IAsyncDisposable
     public BackendServerManager()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appDir = Path.Combine(localAppData, "codex-relayouter");
-        _preferencesPath = Path.Combine(appDir, "connection_preferences.json");
+        _appDir = Path.Combine(localAppData, "codex-relayouter");
+        _preferencesPath = Path.Combine(_appDir, "connection_preferences.json");
+        _logsDir = Path.Combine(_appDir, "logs");
+        _logFilePath = Path.Combine(_logsDir, "bridge-server.log");
 
         TryLoadPreferences();
     }
@@ -98,6 +224,8 @@ public sealed class BackendServerManager : IAsyncDisposable
 
         try
         {
+            PrepareLogFile();
+
             for (var attempt = 0; attempt < 2; attempt++)
             {
                 var port = GetOrCreatePort(attempt == 1);
@@ -115,6 +243,10 @@ public sealed class BackendServerManager : IAsyncDisposable
                     Arguments = $"--urls http://{listenHost}:{port} --Bridge:Security:RemoteEnabled={IsLanEnabled.ToString().ToLowerInvariant()}",
                     UseShellExecute = false,
                     CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    StandardOutputEncoding = Utf8NoBom,
+                    StandardErrorEncoding = Utf8NoBom,
                     WorkingDirectory = serverDir,
                 };
                 startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Production";
@@ -127,9 +259,20 @@ public sealed class BackendServerManager : IAsyncDisposable
 
                 process.Start();
 
+                BackendProcessLogCapture? logCapture = null;
+                try
+                {
+                    logCapture = new BackendProcessLogCapture(process, _logFilePath, Utf8NoBom);
+                }
+                catch
+                {
+                }
+
                 lock (_gate)
                 {
                     _process = process;
+                    _logCapture?.Dispose();
+                    _logCapture = logCapture;
                 }
 
                 try
@@ -140,6 +283,8 @@ public sealed class BackendServerManager : IAsyncDisposable
                 }
                 catch
                 {
+                    logCapture?.Dispose();
+
                     try
                     {
                         if (!process.HasExited)
@@ -180,6 +325,35 @@ public sealed class BackendServerManager : IAsyncDisposable
             }
 
             throw;
+        }
+    }
+
+    private void PrepareLogFile()
+    {
+        try
+        {
+            if (!Directory.Exists(_logsDir))
+            {
+                Directory.CreateDirectory(_logsDir);
+            }
+
+            if (!File.Exists(_logFilePath))
+            {
+                return;
+            }
+
+            var info = new FileInfo(_logFilePath);
+            const long maxBytes = 10 * 1024 * 1024;
+            if (info.Length <= maxBytes)
+            {
+                return;
+            }
+
+            var rotated = Path.Combine(_logsDir, $"bridge-server_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.log");
+            File.Move(_logFilePath, rotated, overwrite: true);
+        }
+        catch
+        {
         }
     }
 
@@ -326,16 +500,19 @@ public sealed class BackendServerManager : IAsyncDisposable
         Task? startTask;
         CancellationTokenSource? lifetimeCts;
         Process? process;
+        BackendProcessLogCapture? logCapture;
 
         lock (_gate)
         {
             startTask = _startTask;
             lifetimeCts = _lifetimeCts;
             process = _process;
+            logCapture = _logCapture;
 
             _startTask = null;
             _lifetimeCts = null;
             _process = null;
+            _logCapture = null;
         }
 
         try
@@ -363,6 +540,7 @@ public sealed class BackendServerManager : IAsyncDisposable
 
         if (process is null)
         {
+            logCapture?.Dispose();
             return;
         }
 
@@ -379,6 +557,7 @@ public sealed class BackendServerManager : IAsyncDisposable
         }
         finally
         {
+            logCapture?.Dispose();
             process.Dispose();
         }
     }

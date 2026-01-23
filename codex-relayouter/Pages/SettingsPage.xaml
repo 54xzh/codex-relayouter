@@ -141,6 +141,17 @@
                 IsChecked="True"
                 Margin="0,8,0,0" />
 
+            <!-- 日志 -->
+            <StackPanel Spacing="4" Margin="0,16,0,0">
+                <TextBlock Text="日志" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="查看本机 Bridge Server 的运行日志" Opacity="0.7" />
+            </StackPanel>
+
+            <Button
+                x:Name="ViewBackendLogsButton"
+                Content="查看后端日志"
+                Click="ViewBackendLogsButton_Click" />
+
             <!-- 状态消息 -->
             <TextBlock
                 x:Name="StatusTextBlock"

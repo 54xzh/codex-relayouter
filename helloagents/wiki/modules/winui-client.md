@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** UI 渲染、用户输入、与 Bridge Server 通信、diff 展示与应用控制
 - **状态:** 开发中
-- **最后更新:** 2026-01-22
+- **最后更新:** 2026-01-23
 
 ## 规范
 
@@ -57,6 +57,7 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 
 #### 场景: 设置页（连接与高级选项）
 设置页用于编辑连接与运行参数（WS 地址、Token、WorkingDirectory、Sandbox/ApprovalPolicy/Effort 等）。
+设置页提供“查看后端日志”：展示本机 Bridge Server 的 stdout/stderr 采集日志（支持刷新/复制/打开日志文件夹）。
 
 #### 场景: 连接页（局域网配对与设备管理）
 在侧边栏底部提供“连接”入口，用于管理局域网设备：
@@ -123,3 +124,4 @@ Chat 页可展示运行追踪信息（Trace）：包括思考摘要与执行命�
 - [202601211848_fix_inline_code_path_click](../../history/2026-01/202601211848_fix_inline_code_path_click/) - 修复：行内代码路径误判与重复打开
 - [202601211742_turn_plan_todo](../../history/2026-01/202601211742_turn_plan_todo/) - WinUI：Chat 页新增“待办/计划”面板（实时 plan + 会话回填）
 - [202601220035_connections_pairing](../../history/2026-01/202601220035_connections_pairing/) - WinUI：连接页（局域网配对/设备列表/撤销/确认弹窗）
+- [202601232130_settings_backend_logs](../../history/2026-01/202601232130_settings_backend_logs/) - WinUI：设置页新增“查看后端日志”
