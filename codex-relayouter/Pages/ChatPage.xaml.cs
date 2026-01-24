@@ -10,6 +10,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -402,33 +403,26 @@ public sealed partial class ChatPage : Page
         }
 
         var codeFontFamily = markdown.CodeFontFamily ?? new FontFamily("Consolas");
-        var textBox = new TextBox
+        var textBlock = new TextBlock
         {
             Text = codeText,
-            IsReadOnly = true,
-            AcceptsReturn = true,
             TextWrapping = markdown.WrapCodeBlock ? TextWrapping.Wrap : TextWrapping.NoWrap,
             FontFamily = codeFontFamily,
             FontSize = markdown.FontSize,
             Foreground = foreground,
-            Background = new SolidColorBrush(Colors.Transparent),
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(0),
-            IsSpellCheckEnabled = false,
-            IsTextPredictionEnabled = false,
-            IsTabStop = false,
+            IsTextSelectionEnabled = true,
+            LineHeight = ChatMessageLineHeight,
+            LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
         };
 
-        UIElement content = textBox;
-        if (!markdown.WrapCodeBlock)
+        var scrollViewer = new ScrollViewer
         {
-            content = new ScrollViewer
-            {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Content = textBox,
-            };
-        }
+            HorizontalScrollBarVisibility = markdown.WrapCodeBlock ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = textBlock,
+            MaxHeight = 260,
+            IsTabStop = false,
+        };
 
         var container = new Border
         {
@@ -438,8 +432,15 @@ public sealed partial class ChatPage : Page
             Padding = padding,
             CornerRadius = new CornerRadius(10),
             Margin = new Thickness(0, 8, 0, 8),
-            Child = content,
+            Child = scrollViewer,
         };
+
+        container.HorizontalAlignment = HorizontalAlignment.Stretch;
+        container.SetBinding(FrameworkElement.WidthProperty, new Binding
+        {
+            Source = markdown,
+            Path = new PropertyPath("ActualWidth"),
+        });
 
         inlineCollection.Add(new LineBreak());
         inlineCollection.Add(new InlineUIContainer { Child = container });
