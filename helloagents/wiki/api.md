@@ -80,6 +80,8 @@ Bridge Server 对外提供两类接口：
 }
 ```
 
+补充：启用服务端自动翻译并命中缓存时，reasoning 的 `title/text` 可能为译文；原始 `~/.codex/sessions/*.jsonl` 不会被修改
+
 #### [GET] /api/v1/sessions/{sessionId}/settings
 **描述:** 获取会话最新的 `sandbox/approvalPolicy` 设置（已实现）
 
@@ -206,7 +208,8 @@ Bridge Server 对外提供两类接口：
 - event `run.plan.updated`：`{ "runId": "...", "threadId": "...", "turnId": "...", "explanation": "...", "plan": [{ "step": "...", "status": "pending|inProgress|completed" }], "updatedAt": "..." }`
 - event `run.command`：`{ "runId": "...", "itemId": "item_0", "command": "...", "status": "inProgress|completed|failed|declined", "exitCode": 0, "output": "..." }`
 - event `run.command.outputDelta`：`{ "runId": "...", "itemId": "item_0", "delta": "..." }`
-- event `run.reasoning`：`{ "runId": "...", "itemId": "item_1", "text": "..." }`
+- event `run.reasoning`：`{ "runId": "...", "itemId": "item_1", "text": "...", "translated": true, "translationLocale": "zh-CN" }`
+  - 说明：当启用服务端自动翻译时，服务端可能会对同一 `itemId` 先广播原文、后广播译文（用于覆盖替换）；命中缓存时也可能直接广播译文
 - event `run.reasoning.delta`：`{ "runId": "...", "itemId": "item_1_summary_0", "textDelta": "..." }`
 - event `diff.updated`：`{ "runId": "...", "threadId": "...(optional)", "files": [{ "path": "...", "diff": "...", "added": 1, "removed": 1 }] }`
 - event `diff.summary`：`{ "runId": "...", "threadId": "...(optional)", "files": [{ "path": "...", "added": 1, "removed": 1 }], "totalAdded": 1, "totalRemoved": 1 }`

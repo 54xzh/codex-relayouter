@@ -13,6 +13,8 @@
 - 新增会话管理（MVP）：`/api/v1/sessions` 列表/创建，WinUI 会话页，`chat.send(sessionId)` resume 与 `session.created` 事件
 - 新增会话体验增强：会话列表标题取首条 user 消息（截断约 50 字）；Chat 页自动加载会话历史（`/api/v1/sessions/{sessionId}/messages`）
 - 新增运行追踪事件：Bridge Server 解析 `command_execution` / `reasoning` 并广播 `run.command` / `run.reasoning`，WinUI Chat 页以可展开区块展示“执行的命令”和“思考摘要”
+- 新增 Trace 思考摘要自动翻译（可选）：Bridge Server 可对 `run.reasoning` 做自动翻译并覆盖广播（不翻译 delta）；翻译结果独立缓存至 `%LOCALAPPDATA%\\codex-relayouter\\translations.json`；通过 `Bridge:Translation` 配置启用
+- 新增 WinUI 设置页：可配置 Trace 自动翻译（`Bridge:Translation`；开关/BaseUrl/ApiKey/Model/每秒最大请求数/最大并发），应用后重启本机后端生效
 - 新增会话回放 trace：`/api/v1/sessions/{sessionId}/messages` 的 assistant 消息可附带 `trace`（思考摘要/命令），并在 WinUI Chat 页按时间顺序展示
 - 新增 Android：聊天页支持展示“执行过程（Trace）”（思考摘要/执行命令/内联 diff），并与 Windows 端折叠策略对齐；同时移除 assistant 消息气泡背景（文字直出）
 - 新增运行链路（app-server）：Bridge Server 改用 `codex app-server`（JSON-RPC）以支持审批请求与 delta 流式事件；WinUI Chat 页增加 `approvalPolicy/effort` 选择与审批弹窗
@@ -36,6 +38,7 @@
 
 ### 变更
 - 项目更名：`codex-bridge` → `codex-relayouter`（更新文档与应用展示名、配对二维码链接 scheme、本地数据目录等，避免与同名项目混淆）
+- 支持通过环境变量 `CODEX_RELAYOUTER_SESSIONS_ROOT` 覆盖默认 `~/.codex/sessions` 路径（用于测试/隔离场景）
 - 清理旧解决方案入口：仅保留 `codex-relayouter.slnx`
 - 调整 WinUI 启动窗口体验：增大初始大小并居中；移除最小尺寸限制（允许缩小窗口）
 - 优化 WinUI Chat 页执行命令展示：命令块点击展开输出，移除独立的“输出”折叠块
@@ -66,6 +69,7 @@
 - 修复 Bridge Server 在客户端异常断开 WebSocket 时被 Kestrel 记录为未处理异常：ReceiveLoop 捕获 `WebSocketException/OperationCanceledException`
 - 修复 WinUI Chat 页执行过程（Trace）增量更新时，处于列表底部不会自动跟随滚动的问题
 - 修复 WinUI Chat 页输出正文后 Trace 未自动折叠的问题
+- 修复 WinUI Chat 页 Trace 新思考摘要到来时会折叠用户手动展开的思考摘要：自动折叠不再覆盖用户手动展开/折叠状态
 - 修复运行内联 diff 不易发现：当存在 diff trace 时保持 Trace 展开，并在收到 `diff.updated` 时强制展开
 - 修复 app-server fileChange diff 解析不稳定：兼容 `files/changes` 数组与合并 patch 的拆分，尽可能产出 `diff.updated`
 - 修复变更统计出现 `+0 -0` 的可理解性问题：当无法统计行级差异时在汇总中标注原因，并在必要时保留上游非零计数
@@ -95,6 +99,7 @@
 - 修复 Android Chat 页执行计划仅展示前 5 项导致无法看到多个进行中步骤：改为可滚动展示全量计划，并为 `pending/inProgress/completed/failed` 提供状态标签（兼容 `in_progress`）
 - 修复 Android 新会话在 `session.created` 补齐 `sessionId` 后清空并重载历史导致“无正文输出/（未输出正文）”占位显示：保留本地流式状态并在 UI 层隐藏占位文本
 - 修复 Android 会话列表无法实时展示多个运行中会话：会话列表页保持 WS 常驻连接，并按 `run.active.snapshot` + run 生命周期事件显示 Running/Completed/Warning 指示器（对齐 Windows）
+- 优化 Android 会话列表（主页）UI：使用分组 `Card` + Material3 `ListItem` + `HorizontalDivider`；trailing 统一状态/导航提示；连接状态卡补充 WS 状态文本；空态增加“新建会话”按钮
 - 修复 Android 进入执行中的会话后无法及时接上增量内容：服务端在 run 相关事件中补齐 `sessionId`（如 `chat.message.delta` / `run.command` / `run.reasoning` 等），客户端据此完成路由与更新
 - 修复会话列表混入“任务标题生成”对话：当首条 user 消息以 `You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title for a task that will be created from that prompt.` 开头时，服务端从会话列表中自动过滤（最近/全部会话均不显示）
 - 修复 Bridge Server 全局单任务限制导致无法同时执行多个任务：改为按 `runId` 并发跟踪，并支持 `run.cancel(runId/sessionId)` 定位取消目标

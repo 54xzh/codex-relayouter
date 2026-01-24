@@ -3,6 +3,7 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using codex_bridge.Backend;
 using codex_bridge.IO;
 using System;
 using System.IO;
@@ -34,6 +35,7 @@ public sealed partial class SettingsPage : Page
     {
         _suppressConfigSave = true;
         LoadConfigFromService();
+        LoadTranslationConfigFromBackend();
         UpdateConnectionUI();
         _suppressConfigSave = false;
         await EnsureBackendAndConnectAsync();
@@ -75,6 +77,18 @@ public sealed partial class SettingsPage : Page
         service.SkipGitRepoCheck = SkipGitRepoCheckCheckBox.IsChecked == true;
     }
 
+    private void LoadTranslationConfigFromBackend()
+    {
+        var settings = App.BackendServer.TranslationSettings;
+
+        TranslationEnabledToggleSwitch.IsOn = settings.Enabled;
+        TranslationBaseUrlTextBox.Text = settings.BaseUrl ?? string.Empty;
+        TranslationApiKeyBox.Password = settings.ApiKey ?? string.Empty;
+        TranslationModelTextBox.Text = settings.Model ?? string.Empty;
+        TranslationMaxRequestsPerSecondTextBox.Text = settings.MaxRequestsPerSecond.ToString();
+        TranslationMaxConcurrencyTextBox.Text = settings.MaxConcurrency.ToString();
+    }
+
     private async Task EnsureBackendAndConnectAsync()
     {
         try
@@ -105,6 +119,61 @@ public sealed partial class SettingsPage : Page
         catch (Exception ex)
         {
             SetStatus($"自动连接失败: {ex.Message}");
+        }
+    }
+
+    private async void ApplyTranslationButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var maxRequestsPerSecond = ParsePositiveIntOrDefault(TranslationMaxRequestsPerSecondTextBox.Text, defaultValue: 1);
+            var maxConcurrency = ParsePositiveIntOrDefault(TranslationMaxConcurrencyTextBox.Text, defaultValue: 2);
+
+            TranslationMaxRequestsPerSecondTextBox.Text = maxRequestsPerSecond.ToString();
+            TranslationMaxConcurrencyTextBox.Text = maxConcurrency.ToString();
+
+            var settings = new BackendTranslationSettings(
+                Enabled: TranslationEnabledToggleSwitch.IsOn,
+                BaseUrl: GetTextOrNull(TranslationBaseUrlTextBox.Text),
+                ApiKey: GetPasswordOrNull(TranslationApiKeyBox.Password),
+                Model: GetTextOrNull(TranslationModelTextBox.Text),
+                MaxRequestsPerSecond: maxRequestsPerSecond,
+                MaxConcurrency: maxConcurrency);
+
+            var existingServerUrl = ServerUrlTextBox.Text?.Trim();
+            var oldBackendUri = App.BackendServer.WebSocketUri;
+            var wasConnectedToLocalBackend =
+                oldBackendUri is not null
+                && !string.IsNullOrWhiteSpace(existingServerUrl)
+                && string.Equals(existingServerUrl, oldBackendUri.ToString(), StringComparison.OrdinalIgnoreCase)
+                && App.ConnectionService.IsConnected;
+
+            var shouldConnectToLocalBackend = string.IsNullOrWhiteSpace(existingServerUrl) || wasConnectedToLocalBackend;
+
+            SetStatus("应用翻译设置中…");
+            await App.BackendServer.SetTranslationSettingsAsync(settings);
+
+            LoadTranslationConfigFromBackend();
+
+            var newBackendUri = App.BackendServer.WebSocketUri;
+            if (newBackendUri is not null && shouldConnectToLocalBackend)
+            {
+                ServerUrlTextBox.Text = newBackendUri.ToString();
+                App.ConnectionService.ServerUrl = newBackendUri.ToString();
+
+                await App.ConnectionService.ConnectAsync(newBackendUri, CancellationToken.None);
+                SetStatus("翻译设置已应用（后端已重启并重新连接）");
+            }
+            else
+            {
+                SetStatus("翻译设置已应用（后端已重启）");
+            }
+
+            UpdateConnectionUI();
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"应用翻译设置失败: {ex.Message}");
         }
     }
 
@@ -394,5 +463,15 @@ public sealed partial class SettingsPage : Page
     {
         var trimmed = password?.Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static int ParsePositiveIntOrDefault(string? text, int defaultValue)
+    {
+        if (int.TryParse(text?.Trim(), out var value) && value > 0)
+        {
+            return value;
+        }
+
+        return defaultValue;
     }
 }

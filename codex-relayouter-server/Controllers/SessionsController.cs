@@ -11,12 +11,18 @@ public sealed class SessionsController : ControllerBase
     private readonly BridgeRequestAuthorizer _authorizer;
     private readonly CodexSessionStore _sessionStore;
     private readonly CodexTurnPlanStore _turnPlanStore;
+    private readonly BridgeTranslationService _translation;
 
-    public SessionsController(BridgeRequestAuthorizer authorizer, CodexSessionStore sessionStore, CodexTurnPlanStore turnPlanStore)
+    public SessionsController(
+        BridgeRequestAuthorizer authorizer,
+        CodexSessionStore sessionStore,
+        CodexTurnPlanStore turnPlanStore,
+        BridgeTranslationService translation)
     {
         _authorizer = authorizer;
         _sessionStore = sessionStore;
         _turnPlanStore = turnPlanStore;
+        _translation = translation;
     }
 
     [HttpGet]
@@ -78,6 +84,19 @@ public sealed class SessionsController : ControllerBase
         if (messages is null)
         {
             return NotFound();
+        }
+
+        foreach (var message in messages)
+        {
+            if (message.Trace is null)
+            {
+                continue;
+            }
+
+            foreach (var trace in message.Trace)
+            {
+                _translation.TryApplyCachedTranslationToReasoningTrace(trace);
+            }
         }
 
         return Ok(messages);

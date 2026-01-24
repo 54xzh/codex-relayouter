@@ -17,7 +17,7 @@ public sealed class CodexSessionStoreTests
         var normalSessionId = Guid.NewGuid().ToString();
         var filteredSessionId = Guid.NewGuid().ToString();
 
-        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var sessionsRoot = CreateTempSessionsRoot();
         var dir = Path.Combine(sessionsRoot, "tests", "listrecent", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
 
@@ -58,6 +58,7 @@ public sealed class CodexSessionStoreTests
         {
             TryDeleteFile(filteredPath);
             TryDeleteFile(normalPath);
+            ClearTempSessionsRoot(sessionsRoot);
         }
     }
 
@@ -65,7 +66,7 @@ public sealed class CodexSessionStoreTests
     public void ReadMessages_FlushesTrailingTraceAsAssistantMessage()
     {
         var sessionId = Guid.NewGuid().ToString();
-        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var sessionsRoot = CreateTempSessionsRoot();
         var dir = Path.Combine(sessionsRoot, "tests", DateTimeOffset.UtcNow.ToString("yyyyMMdd"));
         Directory.CreateDirectory(dir);
         var filePath = Path.Combine(dir, $"rollout-test-{sessionId}.jsonl");
@@ -101,6 +102,7 @@ public sealed class CodexSessionStoreTests
         finally
         {
             TryDeleteFile(filePath);
+            ClearTempSessionsRoot(sessionsRoot);
         }
     }
 
@@ -108,7 +110,7 @@ public sealed class CodexSessionStoreTests
     public void ReadMessages_UsesAgentMessageWhenAssistantMessageMissing()
     {
         var sessionId = Guid.NewGuid().ToString();
-        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var sessionsRoot = CreateTempSessionsRoot();
         var dir = Path.Combine(sessionsRoot, "tests", DateTimeOffset.UtcNow.ToString("yyyyMMdd"));
         Directory.CreateDirectory(dir);
         var filePath = Path.Combine(dir, $"rollout-test-{sessionId}.jsonl");
@@ -141,6 +143,7 @@ public sealed class CodexSessionStoreTests
         finally
         {
             TryDeleteFile(filePath);
+            ClearTempSessionsRoot(sessionsRoot);
         }
     }
 
@@ -148,7 +151,7 @@ public sealed class CodexSessionStoreTests
     public void ReadMessages_DoesNotDuplicateAgentMessageAndResponseItemAssistantMessage()
     {
         var sessionId = Guid.NewGuid().ToString();
-        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var sessionsRoot = CreateTempSessionsRoot();
         var dir = Path.Combine(sessionsRoot, "tests", DateTimeOffset.UtcNow.ToString("yyyyMMdd"));
         Directory.CreateDirectory(dir);
         var filePath = Path.Combine(dir, $"rollout-test-{sessionId}.jsonl");
@@ -182,6 +185,7 @@ public sealed class CodexSessionStoreTests
         finally
         {
             TryDeleteFile(filePath);
+            ClearTempSessionsRoot(sessionsRoot);
         }
     }
 
@@ -189,7 +193,7 @@ public sealed class CodexSessionStoreTests
     public void TryReadLatestSettings_ReadsLatestApprovalPolicyAndSandbox()
     {
         var sessionId = Guid.NewGuid().ToString();
-        var sessionsRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "sessions");
+        var sessionsRoot = CreateTempSessionsRoot();
         var dir = Path.Combine(sessionsRoot, "tests", "settings", DateTimeOffset.UtcNow.ToString("yyyyMMdd"), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var filePath = Path.Combine(dir, $"rollout-test-{sessionId}.jsonl");
@@ -217,6 +221,7 @@ public sealed class CodexSessionStoreTests
         finally
         {
             TryDeleteFile(filePath);
+            ClearTempSessionsRoot(sessionsRoot);
         }
     }
 
@@ -272,6 +277,34 @@ public sealed class CodexSessionStoreTests
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static string CreateTempSessionsRoot()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "codex-relayouter-tests", "sessions", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        Environment.SetEnvironmentVariable("CODEX_RELAYOUTER_SESSIONS_ROOT", dir);
+        return dir;
+    }
+
+    private static void ClearTempSessionsRoot(string sessionsRoot)
+    {
+        Environment.SetEnvironmentVariable("CODEX_RELAYOUTER_SESSIONS_ROOT", null);
+        TryDeleteDirectory(sessionsRoot);
+    }
+
+    private static void TryDeleteDirectory(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
             }
         }
         catch

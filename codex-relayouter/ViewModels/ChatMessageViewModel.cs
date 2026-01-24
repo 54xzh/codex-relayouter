@@ -449,12 +449,12 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
         if (_traceById.TryGetValue(id, out var existing) && existing.IsDiff)
         {
             existing.UpdateDiff(path, diff, added, removed);
-            existing.IsExpanded = true;
+            existing.SetExpandedFromSystem(expanded: true);
             return;
         }
 
         var created = TraceEntryViewModel.CreateDiff(id, path, diff, added, removed);
-        created.IsExpanded = true;
+        created.SetExpandedFromSystem(expanded: true);
         _traceById[id] = created;
         Trace.Add(created);
     }
@@ -518,10 +518,10 @@ public sealed class ChatMessageViewModel : INotifyPropertyChanged
                 continue;
             }
 
-            entry.IsExpanded = false;
+            entry.SetExpandedFromSystem(expanded: false);
         }
 
-        latest.IsExpanded = true;
+        latest.SetExpandedFromSystem(expanded: true);
     }
 
     public void AppendCommandOutputDelta(string id, string delta)

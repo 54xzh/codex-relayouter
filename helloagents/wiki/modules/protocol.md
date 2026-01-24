@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** 消息结构、版本化策略、事件类型定义、错误模型
 - **状态:** 开发中
-- **最后更新:** 2026-01-22
+- **最后更新:** 2026-01-25
 
 ## 规范
 
@@ -23,6 +23,7 @@
 - `item.completed(item.type=reasoning, item.text)` → `run.reasoning(itemId/text)`
 
 补充：`run.plan.updated.plan[].status` 取值与 `codex app-server` 对齐：`pending` / `inProgress` / `completed`。
+补充：当启用服务端自动翻译时，`run.reasoning` 可能会对同一 `itemId` 重复广播用于覆盖替换，并附带可选字段 `translated=true` 与 `translationLocale=zh-CN`。
 
 #### 场景: 消息封装（Envelope）
 统一使用 JSON 消息封装，字段采用 camelCase（与 `System.Text.Json` Web 默认一致）：

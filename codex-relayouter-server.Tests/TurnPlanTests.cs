@@ -92,7 +92,14 @@ public sealed class TurnPlanTests
 
         planStore = new CodexTurnPlanStore();
 
-        var controller = new SessionsController(authorizer, sessionStore, planStore);
+        var translationCache = new TranslationCacheStore(NullLogger<TranslationCacheStore>.Instance, filePath: GetTempTranslationsPath());
+        var translation = new BridgeTranslationService(
+            Options.Create(new BridgeTranslationOptions { Enabled = false }),
+            translationCache,
+            new NoopTranslator(),
+            NullLogger<BridgeTranslationService>.Instance);
+
+        var controller = new SessionsController(authorizer, sessionStore, planStore, translation);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -112,5 +119,17 @@ public sealed class TurnPlanTests
         var dir = Path.Combine(Path.GetTempPath(), "codex-relayouter-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, "paired-devices.json");
+    }
+
+    private static string GetTempTranslationsPath()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "codex-relayouter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "translations.json");
+    }
+
+    private sealed class NoopTranslator : ITextTranslator
+    {
+        public Task<string?> TranslateToZhCnAsync(string input, CancellationToken cancellationToken) => Task.FromResult<string?>(null);
     }
 }

@@ -15,6 +15,7 @@ public sealed class WebSocketHub
     private readonly BridgeRequestAuthorizer _authorizer;
     private readonly CodexAppServerRunner _appServerRunner;
     private readonly CodexSessionStore _sessionStore;
+    private readonly BridgeTranslationService _translation;
     private readonly DevicePresenceTracker _presenceTracker;
     private readonly ILogger<WebSocketHub> _logger;
 
@@ -27,12 +28,14 @@ public sealed class WebSocketHub
         BridgeRequestAuthorizer authorizer,
         CodexAppServerRunner appServerRunner,
         CodexSessionStore sessionStore,
+        BridgeTranslationService translation,
         DevicePresenceTracker presenceTracker,
         ILogger<WebSocketHub> logger)
     {
         _authorizer = authorizer;
         _appServerRunner = appServerRunner;
         _sessionStore = sessionStore;
+        _translation = translation;
         _presenceTracker = presenceTracker;
         _logger = logger;
     }
@@ -387,7 +390,7 @@ public sealed class WebSocketHub
         await BroadcastAsync(CreateEvent("run.cancel.requested", new { clientId, runId, sessionId = run.SessionId ?? sessionId }), cancellationToken);
     }
 
-    private Task EmitRunEventAsync(RunContext run, BridgeEnvelope envelope, CancellationToken cancellationToken)
+    private async Task EmitRunEventAsync(RunContext run, BridgeEnvelope envelope, CancellationToken cancellationToken)
     {
         if (string.Equals(envelope.Type, "event", StringComparison.OrdinalIgnoreCase))
         {
@@ -404,7 +407,114 @@ public sealed class WebSocketHub
             }
         }
 
-        return BroadcastAsync(envelope, cancellationToken);
+        if (!string.Equals(envelope.Type, "event", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(envelope.Name, "run.reasoning", StringComparison.OrdinalIgnoreCase))
+        {
+            await BroadcastAsync(envelope, cancellationToken);
+            return;
+        }
+
+        await EmitTranslatedReasoningBestEffortAsync(run, envelope, cancellationToken);
+    }
+
+    private async Task EmitTranslatedReasoningBestEffortAsync(RunContext run, BridgeEnvelope envelope, CancellationToken cancellationToken)
+    {
+        if (!_translation.IsEnabled)
+        {
+            await BroadcastAsync(envelope, cancellationToken);
+            return;
+        }
+
+        if (TryGetBoolean(envelope.Data, "translated", out var alreadyTranslated) && alreadyTranslated)
+        {
+            await BroadcastAsync(envelope, cancellationToken);
+            return;
+        }
+
+        if (!TryGetString(envelope.Data, "text", out var text) || string.IsNullOrWhiteSpace(text))
+        {
+            await BroadcastAsync(envelope, cancellationToken);
+            return;
+        }
+
+        text = text.Trim();
+
+        if (_translation.TryGetReasoningTranslation(text, out var cached))
+        {
+            var translatedEnvelope = ApplyRunReasoningTranslation(envelope, cached.RawText, cached.Locale);
+            await BroadcastAsync(translatedEnvelope, cancellationToken);
+            return;
+        }
+
+        await BroadcastAsync(envelope, cancellationToken);
+
+        if (!TryGetString(envelope.Data, "runId", out var runId) || string.IsNullOrWhiteSpace(runId))
+        {
+            return;
+        }
+
+        if (!TryGetString(envelope.Data, "itemId", out var itemId) || string.IsNullOrWhiteSpace(itemId))
+        {
+            return;
+        }
+
+        runId = runId.Trim();
+        itemId = itemId.Trim();
+        var sessionId = run.SessionId;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var translated = await _translation.TranslateReasoningAsync(text, CancellationToken.None);
+                if (translated is null || string.IsNullOrWhiteSpace(translated.RawText))
+                {
+                    return;
+                }
+
+                var payload = new Dictionary<string, object?>(capacity: 6, comparer: StringComparer.Ordinal)
+                {
+                    ["runId"] = runId,
+                    ["itemId"] = itemId,
+                    ["text"] = translated.RawText,
+                    ["translated"] = true,
+                    ["translationLocale"] = translated.Locale,
+                };
+
+                if (!string.IsNullOrWhiteSpace(sessionId))
+                {
+                    payload["sessionId"] = sessionId;
+                }
+
+                var update = CreateEvent("run.reasoning", payload);
+
+                await BroadcastAsync(update, CancellationToken.None);
+            }
+            catch
+            {
+            }
+        }, CancellationToken.None);
+    }
+
+    internal static BridgeEnvelope ApplyRunReasoningTranslation(BridgeEnvelope envelope, string translatedText, string locale)
+    {
+        if (envelope.Data.ValueKind != JsonValueKind.Object)
+        {
+            return envelope;
+        }
+
+        var payload = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        foreach (var prop in envelope.Data.EnumerateObject())
+        {
+            payload[prop.Name] = prop.Value.Clone();
+        }
+
+        payload["text"] = JsonSerializer.SerializeToElement(translatedText, BridgeJson.SerializerOptions);
+        payload["translated"] = JsonSerializer.SerializeToElement(true, BridgeJson.SerializerOptions);
+        payload["translationLocale"] = JsonSerializer.SerializeToElement(locale, BridgeJson.SerializerOptions);
+
+        envelope.Data = JsonSerializer.SerializeToElement(payload, BridgeJson.SerializerOptions);
+        return envelope;
     }
 
     private static string? NormalizeSessionId(string? sessionId) =>

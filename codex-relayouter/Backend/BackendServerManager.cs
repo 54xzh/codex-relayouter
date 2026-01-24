@@ -134,6 +134,13 @@ public sealed class BackendServerManager : IAsyncDisposable
     {
         public bool LanEnabled { get; set; }
         public int? Port { get; set; }
+
+        public bool TranslationEnabled { get; set; }
+        public string? TranslationBaseUrl { get; set; }
+        public string? TranslationApiKey { get; set; }
+        public string? TranslationModel { get; set; }
+        public int? TranslationMaxRequestsPerSecond { get; set; }
+        public int? TranslationMaxConcurrency { get; set; }
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -155,6 +162,12 @@ public sealed class BackendServerManager : IAsyncDisposable
     private BackendProcessLogCapture? _logCapture;
     private bool _lanEnabled;
     private int? _port;
+    private bool _translationEnabled;
+    private string? _translationBaseUrl;
+    private string? _translationApiKey;
+    private string? _translationModel;
+    private int _translationMaxRequestsPerSecond = 1;
+    private int _translationMaxConcurrency = 2;
 
     public Uri? HttpBaseUri { get; private set; }
 
@@ -171,6 +184,23 @@ public sealed class BackendServerManager : IAsyncDisposable
             lock (_gate)
             {
                 return _lanEnabled;
+            }
+        }
+    }
+
+    public BackendTranslationSettings TranslationSettings
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return new BackendTranslationSettings(
+                    Enabled: _translationEnabled,
+                    BaseUrl: _translationBaseUrl,
+                    ApiKey: _translationApiKey,
+                    Model: _translationModel,
+                    MaxRequestsPerSecond: _translationMaxRequestsPerSecond,
+                    MaxConcurrency: _translationMaxConcurrency);
             }
         }
     }
@@ -202,6 +232,37 @@ public sealed class BackendServerManager : IAsyncDisposable
         {
             shouldRestart = _lanEnabled != enabled;
             _lanEnabled = enabled;
+        }
+
+        if (!shouldRestart)
+        {
+            return;
+        }
+
+        SavePreferences();
+        await StopAsync();
+        await EnsureStartedAsync();
+    }
+
+    public async Task SetTranslationSettingsAsync(BackendTranslationSettings settings)
+    {
+        bool shouldRestart;
+        lock (_gate)
+        {
+            shouldRestart =
+                _translationEnabled != settings.Enabled
+                || !string.Equals(_translationBaseUrl, settings.BaseUrl, StringComparison.Ordinal)
+                || !string.Equals(_translationApiKey, settings.ApiKey, StringComparison.Ordinal)
+                || !string.Equals(_translationModel, settings.Model, StringComparison.Ordinal)
+                || _translationMaxRequestsPerSecond != settings.MaxRequestsPerSecond
+                || _translationMaxConcurrency != settings.MaxConcurrency;
+
+            _translationEnabled = settings.Enabled;
+            _translationBaseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl) ? null : settings.BaseUrl.Trim();
+            _translationApiKey = string.IsNullOrWhiteSpace(settings.ApiKey) ? null : settings.ApiKey.Trim();
+            _translationModel = string.IsNullOrWhiteSpace(settings.Model) ? null : settings.Model.Trim();
+            _translationMaxRequestsPerSecond = settings.MaxRequestsPerSecond <= 0 ? 1 : settings.MaxRequestsPerSecond;
+            _translationMaxConcurrency = settings.MaxConcurrency <= 0 ? 1 : settings.MaxConcurrency;
         }
 
         if (!shouldRestart)
@@ -250,6 +311,8 @@ public sealed class BackendServerManager : IAsyncDisposable
                     WorkingDirectory = serverDir,
                 };
                 startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Production";
+
+                ApplyTranslationEnv(startInfo);
 
                 var process = new Process
                 {
@@ -427,6 +490,19 @@ public sealed class BackendServerManager : IAsyncDisposable
                 {
                     _port = prefs.Port;
                 }
+
+                _translationEnabled = prefs.TranslationEnabled;
+                _translationBaseUrl = string.IsNullOrWhiteSpace(prefs.TranslationBaseUrl) ? null : prefs.TranslationBaseUrl.Trim();
+                _translationApiKey = string.IsNullOrWhiteSpace(prefs.TranslationApiKey) ? null : prefs.TranslationApiKey.Trim();
+                _translationModel = string.IsNullOrWhiteSpace(prefs.TranslationModel) ? null : prefs.TranslationModel.Trim();
+                if (prefs.TranslationMaxRequestsPerSecond is > 0)
+                {
+                    _translationMaxRequestsPerSecond = prefs.TranslationMaxRequestsPerSecond.Value;
+                }
+                if (prefs.TranslationMaxConcurrency is > 0)
+                {
+                    _translationMaxConcurrency = prefs.TranslationMaxConcurrency.Value;
+                }
             }
         }
         catch
@@ -443,6 +519,12 @@ public sealed class BackendServerManager : IAsyncDisposable
             {
                 LanEnabled = _lanEnabled,
                 Port = _port,
+                TranslationEnabled = _translationEnabled,
+                TranslationBaseUrl = _translationBaseUrl,
+                TranslationApiKey = _translationApiKey,
+                TranslationModel = _translationModel,
+                TranslationMaxRequestsPerSecond = _translationMaxRequestsPerSecond,
+                TranslationMaxConcurrency = _translationMaxConcurrency,
             };
         }
 
@@ -493,6 +575,42 @@ public sealed class BackendServerManager : IAsyncDisposable
         }
 
         throw new TimeoutException("等待后端健康检查超时。");
+    }
+
+    private void ApplyTranslationEnv(ProcessStartInfo startInfo)
+    {
+        BackendTranslationSettings settings;
+        lock (_gate)
+        {
+            settings = new BackendTranslationSettings(
+                Enabled: _translationEnabled,
+                BaseUrl: _translationBaseUrl,
+                ApiKey: _translationApiKey,
+                Model: _translationModel,
+                MaxRequestsPerSecond: _translationMaxRequestsPerSecond,
+                MaxConcurrency: _translationMaxConcurrency);
+        }
+
+        startInfo.EnvironmentVariables["Bridge__Translation__Enabled"] = settings.Enabled.ToString().ToLowerInvariant();
+
+        if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+        {
+            startInfo.EnvironmentVariables["Bridge__Translation__BaseUrl"] = settings.BaseUrl.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.ApiKey))
+        {
+            startInfo.EnvironmentVariables["Bridge__Translation__ApiKey"] = settings.ApiKey.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.Model))
+        {
+            startInfo.EnvironmentVariables["Bridge__Translation__Model"] = settings.Model.Trim();
+        }
+
+        startInfo.EnvironmentVariables["Bridge__Translation__TargetLocale"] = "zh-CN";
+        startInfo.EnvironmentVariables["Bridge__Translation__MaxRequestsPerSecond"] = settings.MaxRequestsPerSecond <= 0 ? "1" : settings.MaxRequestsPerSecond.ToString();
+        startInfo.EnvironmentVariables["Bridge__Translation__MaxConcurrency"] = settings.MaxConcurrency <= 0 ? "1" : settings.MaxConcurrency.ToString();
     }
 
     public async Task StopAsync()
@@ -567,3 +685,11 @@ public sealed class BackendServerManager : IAsyncDisposable
         await StopAsync();
     }
 }
+
+public sealed record BackendTranslationSettings(
+    bool Enabled,
+    string? BaseUrl,
+    string? ApiKey,
+    string? Model,
+    int MaxRequestsPerSecond,
+    int MaxConcurrency);

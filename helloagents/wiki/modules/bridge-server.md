@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** 会话与运行管理、工作区管理、Codex 进程驱动（app-server JSON-RPC + JSONL 回放解析）、事件广播、鉴权与远程开关
 - **状态:** 开发中
-- **最后更新:** 2026-01-23
+- **最后更新:** 2026-01-25
 
 ## 规范
 
@@ -65,6 +65,7 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
 - 运行链路改为 `codex app-server`（JSON-RPC over stdio）：支持审批 request/response 与 delta 流式事件
 - 为支持已配置的 MCP：启动/恢复 thread 后会调用 `config/mcpServer/reload`，并在 turn 开始前预热 `mcpServerStatus/list`（避免首个 turn 看不到工具）；当选择 `workspace-write` 时，`sandboxPolicy.networkAccess` 默认开启
 - `commandExecution` / `reasoning` / `agentMessage` 会被映射为 `run.command` / `run.reasoning` / `chat.message`，并额外广播 delta 事件用于前端实时渲染
+- 可选：服务端可对 `run.reasoning` 执行自动翻译（全局开关），并对同一 `itemId` 追加广播译文以覆盖替换（所有客户端最终一致）；翻译结果独立缓存，且不会写入/修改 `~/.codex/sessions/*.jsonl`
 - 会话回放时，服务端会从 `~/.codex/sessions` 中解析 `agent_reasoning` 与工具调用（如 `shell_command`），并以 `trace` 字段附加到对应的 assistant 消息；同时解析 `input_image/output_image` 并返回 `images`（data URL）
 
 ## 配置
@@ -74,6 +75,15 @@ Bridge Server 需要被包含在应用包的 `bridge-server/` 子目录中；Win
   - Windows 下为兼容 MSIX/sidecar 环境的 PATH 差异，Bridge Server 会尝试在常见目录中自动定位（如 `%USERPROFILE%\\AppData\\Roaming\\npm\\codex.cmd`、`%USERPROFILE%\\.cargo\\bin\\codex.exe`、WindowsApps 与 PATH）
   - 如仍失败，可将该值配置为 `codex.cmd/codex.exe` 的绝对路径
 - `Bridge:Codex:SkipGitRepoCheck`：是否跳过仓库检查（默认 false）
+- `Bridge:Translation:Enabled`：是否开启自动翻译（默认 false；仅影响 Trace 的 reasoning，不影响 assistant 正文）
+- `Bridge:Translation:BaseUrl`：翻译服务 Base URL（OpenAI 兼容；可为根地址或包含 `/v1`）
+- `Bridge:Translation:ApiKey`：翻译服务 API Key
+- `Bridge:Translation:Model`：翻译使用的模型（示例：`gpt-4.1-mini`）
+- `Bridge:Translation:TargetLocale`：目标语言（固定 `zh-CN`）
+- `Bridge:Translation:MaxRequestsPerSecond`：每秒最大请求数（默认 1）
+- `Bridge:Translation:MaxConcurrency`：最大并发翻译请求数（默认 2）
+- `Bridge:Translation:TimeoutMs` / `MaxInputChars`：请求超时与最大输入长度（可选）
+- 翻译缓存文件（默认）：`%LOCALAPPDATA%\\codex-relayouter\\translations.json`
 - 为避免 Windows 默认代码页导致 `stdin not valid UTF-8`，Bridge Server 与 `codex` 子进程交互统一使用 UTF-8（stdin/stdout/stderr）
 - 为兼容 `codex exec resume` 的会话解析，Bridge Server 会在创建会话时写入 `session_meta.payload.cli_version`，并在必要时自动补写缺失字段（含清理 UTF-8 BOM）
 

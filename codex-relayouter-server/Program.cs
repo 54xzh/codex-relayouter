@@ -13,6 +13,9 @@ builder.Services.AddOptions<codex_bridge_server.Bridge.BridgeSecurityOptions>()
     .Bind(builder.Configuration.GetSection("Bridge:Security"));
 builder.Services.AddOptions<codex_bridge_server.Bridge.CodexOptions>()
     .Bind(builder.Configuration.GetSection("Bridge:Codex"));
+builder.Services.AddOptions<codex_bridge_server.Bridge.BridgeTranslationOptions>()
+    .Bind(builder.Configuration.GetSection("Bridge:Translation"));
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.PairedDeviceStore>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.DevicePairingService>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.DevicePresenceTracker>();
@@ -23,6 +26,10 @@ builder.Services.AddSingleton<codex_bridge_server.Bridge.CodexAppServerRunner>()
 builder.Services.AddSingleton<codex_bridge_server.Bridge.CodexSessionStore>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.CodexTurnPlanStore>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.StatusTextBuilder>();
+builder.Services.AddSingleton<codex_bridge_server.Bridge.TranslationCacheStore>();
+builder.Services.AddSingleton<codex_bridge_server.Bridge.OpenAiChatCompletionsTranslationClient>();
+builder.Services.AddSingleton<codex_bridge_server.Bridge.ITextTranslator>(sp => sp.GetRequiredService<codex_bridge_server.Bridge.OpenAiChatCompletionsTranslationClient>());
+builder.Services.AddSingleton<codex_bridge_server.Bridge.BridgeTranslationService>();
 builder.Services.AddSingleton<codex_bridge_server.Bridge.WebSocketHub>();
 
 var app = builder.Build();

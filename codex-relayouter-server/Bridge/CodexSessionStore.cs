@@ -1035,6 +1035,13 @@ public sealed class CodexSessionStore
 
     private static string GetSessionsRoot()
     {
+        var overrideRoot = Environment.GetEnvironmentVariable("CODEX_RELAYOUTER_SESSIONS_ROOT")
+            ?? Environment.GetEnvironmentVariable("CODEX_SESSIONS_ROOT");
+        if (!string.IsNullOrWhiteSpace(overrideRoot))
+        {
+            return overrideRoot.Trim();
+        }
+
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return Path.Combine(userProfile, ".codex", "sessions");
     }

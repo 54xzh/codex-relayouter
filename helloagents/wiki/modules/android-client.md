@@ -10,7 +10,7 @@
   - 会话运行状态指示（WS 常驻连接：Running/Completed/Warning，对齐 Windows）
   - 聊天界面（加载历史、连接 WS、发送 `chat.send`、展示 plan 与执行过程/trace）
 - **状态:** 开发中
-- **最后更新:** 2026-01-23
+- **最后更新:** 2026-01-24
 
 ## 规范
 
@@ -77,7 +77,10 @@ Android 端 UI 必须拆分为三个模块页面，并统一使用 Material3。
 
 ## UI 约定（会话列表）
 - 会话列表页保持 WS 常驻连接，接收 `run.active.snapshot` 与 run 生命周期事件以更新指示器
-- 指示器优先级对齐 Windows：Running（进度环）> Warning（黄点）> Completed（绿点）> None
+- 会话列表以分组 `Card` 容器承载，内部列表项使用 Material3 `ListItem`（leading/headline/supporting/trailing），分隔使用 `HorizontalDivider`
+- 连接状态卡展示 baseUrl/deviceId，并补充显示 WS 状态（如“已连接/连接中/已断开”）
+- 空列表状态提供显式 CTA（“新建会话”按钮），同时保留右下角 FAB
+- 指示器优先级对齐 Windows：Running（进度环）> Warning（警告图标）> Completed（勾选图标）> None（导航箭头）
 
 ## 数据模型
 

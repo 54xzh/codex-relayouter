@@ -18,6 +18,7 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
     private int _removed;
     private string _rawReasoningText = string.Empty;
     private bool _isExpanded;
+    private bool? _userExpandedOverride;
 
     private TraceEntryViewModel(string id, string kind)
     {
@@ -127,6 +128,7 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
         get => _isExpanded;
         set
         {
+            _userExpandedOverride = value;
             if (_isExpanded == value)
             {
                 return;
@@ -135,6 +137,17 @@ public sealed class TraceEntryViewModel : INotifyPropertyChanged
             _isExpanded = value;
             OnPropertyChanged();
         }
+    }
+
+    public void SetExpandedFromSystem(bool expanded)
+    {
+        if (_userExpandedOverride.HasValue || _isExpanded == expanded)
+        {
+            return;
+        }
+
+        _isExpanded = expanded;
+        OnPropertyChanged(nameof(IsExpanded));
     }
 
     public string Status

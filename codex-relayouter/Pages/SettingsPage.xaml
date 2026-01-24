@@ -141,6 +141,55 @@
                 IsChecked="True"
                 Margin="0,8,0,0" />
 
+            <!-- 自动翻译（Trace） -->
+            <StackPanel Spacing="4" Margin="0,16,0,0">
+                <TextBlock Text="自动翻译（Trace）" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock
+                    Text="可选：将“思考摘要/Trace Reasoning”自动翻译为 zh-CN（服务端全局生效，应用后会重启后端）。"
+                    Opacity="0.7"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ToggleSwitch
+                x:Name="TranslationEnabledToggleSwitch"
+                Header="启用自动翻译"
+                OffContent="关闭"
+                OnContent="开启" />
+
+            <TextBox
+                x:Name="TranslationBaseUrlTextBox"
+                Header="翻译 API Base URL（OpenAI 兼容）"
+                PlaceholderText="例如 https://api.openai.com" />
+
+            <PasswordBox
+                x:Name="TranslationApiKeyBox"
+                Header="翻译 API Key"
+                PlaceholderText="仅用于翻译调用（本地存储）" />
+
+            <TextBox
+                x:Name="TranslationModelTextBox"
+                Header="翻译模型"
+                PlaceholderText="例如 gpt-4.1-mini" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16" RowDefinitions="Auto" RowSpacing="16">
+                <TextBox
+                    x:Name="TranslationMaxRequestsPerSecondTextBox"
+                    Header="每秒最大请求数"
+                    PlaceholderText="1" />
+                <TextBox
+                    x:Name="TranslationMaxConcurrencyTextBox"
+                    Grid.Column="1"
+                    Header="最大并发"
+                    PlaceholderText="2" />
+            </Grid>
+
+            <TextBlock Text="目标语言：zh-CN（固定）" Opacity="0.7" />
+
+            <Button
+                x:Name="ApplyTranslationButton"
+                Content="应用翻译设置（重启后端）"
+                Click="ApplyTranslationButton_Click" />
+
             <!-- 日志 -->
             <StackPanel Spacing="4" Margin="0,16,0,0">
                 <TextBlock Text="日志" Style="{StaticResource SubtitleTextBlockStyle}" />
