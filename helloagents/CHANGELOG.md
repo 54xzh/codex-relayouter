@@ -83,6 +83,7 @@
 - 修复 Chat 页流式输出不刷新：将消息 `Text` 绑定改为 OneWay；并默认开启“跳过 Git 检查”
 - 修复 Chat 页显示 Codex `--json` 控制事件（thread/turn/...）：后端解析并仅广播真实助手消息
 - 修复 Chat 页“执行的命令/思考摘要”区块不显示：为 `x:Bind` 增加 `Mode=OneWay` 以支持运行时更新，并在运行开始时提示“思考中…”
+- 修复 Trace 思考摘要连续多段输出时，译文仅在全部段落结束后才开始更新：在 `summaryIndex` 前进时提前补发完成态 `run.reasoning`，使翻译可更早触发并覆盖替换
 - 修复 workspace-write 模式无法请求权限：修正 app-server(JSON-RPC) 消息分类逻辑，避免将带 `method` 的 `requestApproval` server request 误判为 response 丢弃，从而确保可正常转发 `approval.requested` 并回传 `approval.respond` 的用户决定
 - 修复已配置 MCP 在 app-server 链路下不生效：启动 thread 后调用 `config/mcpServer/reload` 并预热 `mcpServerStatus/list`（避免首个 turn 看不到工具），同时在 `workspace-write` 的 `sandboxPolicy` 中启用 `networkAccess`
 - 修复图片发送失败提示不明确/部分格式不兼容：WinUI 将剪贴板/BMP 图片转为 PNG（避免 `image/bmp` 导致失败），并在 `turn.status=failed` 时透出 `turn.error.message`
@@ -101,6 +102,7 @@
 - 修复 Android 会话列表无法实时展示多个运行中会话：会话列表页保持 WS 常驻连接，并按 `run.active.snapshot` + run 生命周期事件显示 Running/Completed/Warning 指示器（对齐 Windows）
 - 优化 Android 会话列表（主页）UI：使用分组 `Card` + Material3 `ListItem` + `HorizontalDivider`；trailing 统一状态/导航提示；连接状态卡补充 WS 状态文本；空态增加“新建会话”按钮
 - 修复 Android 进入执行中的会话后无法及时接上增量内容：服务端在 run 相关事件中补齐 `sessionId`（如 `chat.message.delta` / `run.command` / `run.reasoning` 等），客户端据此完成路由与更新
+- 修复 Android WS 回调跨线程更新导致执行过程偶发重复渲染：WS 事件统一切回主线程处理，并在重连/页面销毁时取消旧连接与忽略陈旧回调
 - 修复会话列表混入“任务标题生成”对话：当首条 user 消息以 `You are a helpful assistant. You will be presented with a user prompt, and your job is to provide a short title for a task that will be created from that prompt.` 开头时，服务端从会话列表中自动过滤（最近/全部会话均不显示）
 - 修复 Bridge Server 全局单任务限制导致无法同时执行多个任务：改为按 `runId` 并发跟踪，并支持 `run.cancel(runId/sessionId)` 定位取消目标
 - 修复 `codex exec --json` 链路下 `item.started(command_execution)` 默认状态使用 `in_progress` 与协议不一致：统一为 `inProgress`

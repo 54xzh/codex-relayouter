@@ -75,6 +75,7 @@ public sealed class CodexAppServerRunner
         var currentTurnId = string.Empty;
         var diffTracker = new DiffRunTracker();
         var diffSummaryEmitted = false;
+        var reasoningSummaryTracker = new ReasoningSummaryTracker();
 
         var completedTcs = new TaskCompletionSource<CodexAppServerTurnResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -741,7 +742,13 @@ public sealed class CodexAppServerRunner
                             return;
                         }
 
+                        itemId = itemId.Trim();
                         var summaryIndex = TryGetInt64(@params, "summaryIndex", out var idx) ? idx : 0;
+                        if (reasoningSummaryTracker.TryAppendDelta(itemId, summaryIndex, delta, out var completedPart))
+                        {
+                            await emitEvent(CreateEvent("run.reasoning", new { runId, itemId = completedPart.PartId, text = completedPart.Text }), ct);
+                        }
+
                         var partId = $"{itemId}_summary_{summaryIndex}";
                         await emitEvent(CreateEvent("run.reasoning.delta", new { runId, itemId = partId, textDelta = delta }), ct);
                         return;
@@ -912,6 +919,15 @@ public sealed class CodexAppServerRunner
                                     await emitEvent(CreateEvent("run.reasoning", new { runId, itemId = partId, text }), ct);
                                     index++;
                                 }
+
+                                reasoningSummaryTracker.Clear(itemId);
+                                return;
+                            }
+
+                            var flushedParts = reasoningSummaryTracker.FinalizeFromSummary(itemId, summaryParts: null);
+                            foreach (var part in flushedParts)
+                            {
+                                await emitEvent(CreateEvent("run.reasoning", new { runId, itemId = part.PartId, text = part.Text }), ct);
                             }
 
                             return;
