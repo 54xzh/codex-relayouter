@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
@@ -29,6 +30,9 @@ namespace codex_bridge
     /// </summary>
     public partial class App : Application
     {
+        private static readonly object UnhandledExceptionLogGate = new();
+        private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
         private Window? _window;
         public static BackendServerManager BackendServer { get; } = new();
         public static AppSessionState SessionState { get; } = new();
@@ -43,7 +47,66 @@ namespace codex_bridge
         public App()
         {
             InitializeComponent();
+            AttachGlobalExceptionHandlers();
             SessionState.CurrentSessionChanged += (_, _) => ApplySessionToConnectionDefaults();
+        }
+
+        private void AttachGlobalExceptionHandlers()
+        {
+            UnhandledException += (_, e) =>
+            {
+                TryAppendUnhandledExceptionLog("WinUI.UnhandledException", e.Exception);
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                TryAppendUnhandledExceptionLog("AppDomain.UnhandledException", e.ExceptionObject as Exception);
+            };
+
+            TaskScheduler.UnobservedTaskException += (_, e) =>
+            {
+                TryAppendUnhandledExceptionLog("TaskScheduler.UnobservedTaskException", e.Exception);
+                e.SetObserved();
+            };
+        }
+
+        private static void TryAppendUnhandledExceptionLog(string source, Exception? exception)
+        {
+            if (exception is null)
+            {
+                return;
+            }
+
+            try
+            {
+                var path = GetUnhandledExceptionLogPath();
+                var directory = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var entry = $"===== {DateTimeOffset.Now:O} {source} ====={Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}";
+
+                lock (UnhandledExceptionLogGate)
+                {
+                    File.AppendAllText(path, entry, Utf8NoBom);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static string GetUnhandledExceptionLogPath()
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (string.IsNullOrWhiteSpace(localAppData))
+            {
+                localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? string.Empty;
+            }
+
+            return System.IO.Path.Combine(localAppData, "codex-relayouter", "logs", "winui-unhandled.log");
         }
 
         private static void ApplySessionToConnectionDefaults()

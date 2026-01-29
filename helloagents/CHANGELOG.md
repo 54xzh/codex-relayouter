@@ -108,3 +108,4 @@
 - 修复 `codex exec --json` 链路下 `item.started(command_execution)` 默认状态使用 `in_progress` 与协议不一致：统一为 `inProgress`
 - 修复 WinUI 切换页面/会话后返回对话“正文为空但仍在更新”的问题：会话输出/计划/运行状态改为全局 Store 缓存并按 `sessionId` 绑定
 - 修复 WinUI 切换会话时消息列表动画异常：会话切换改为使用 Frame 原生导航过渡（NavigationView RecommendedNavigationTransitionInfo），并禁用批量 ItemContainerTransitions 入场动画以避免闪烁
+- 修复 Release WinUI 白屏闪退：禁用 `PublishTrimmed`，并将未处理异常写入 `%LOCALAPPDATA%\\codex-relayouter\\logs\\winui-unhandled.log`
