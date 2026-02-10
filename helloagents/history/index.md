@@ -65,10 +65,15 @@
 | 202601220259 | connections_persist | 修复 | ✅已完成（记住局域网开关/端口持久化） | [202601220259_connections_persist](2026-01/202601220259_connections_persist/) |
 | 202601220211 | android_material3_skeleton | 功能 | ✅已完成（Android Material3 三模块骨架） | [202601220211_android_material3_skeleton](2026-01/202601220211_android_material3_skeleton/) |
 | 202601222027 | multi-run-state-sidebar | 功能 | ✅已完成（多任务并行/状态保持/侧边栏指示器） | [202601222027_multi-run-state-sidebar](2026-01/202601222027_multi-run-state-sidebar/) |
+| 202602102009 | tauri_frontend_migration | 功能 | ✅已完成（Electron 前端迁移到 Tauri 壳层） | [202602102009_tauri_frontend_migration](2026-02/202602102009_tauri_frontend_migration/) |
 
 ---
 
 ## 按月归档
+
+### 2026-02
+
+- [202602102009_tauri_frontend_migration](2026-02/202602102009_tauri_frontend_migration/) - Tauri：迁移 Electron 前端静态资源并提供 electronBridge 兼容层
 
 ### 2026-01
 

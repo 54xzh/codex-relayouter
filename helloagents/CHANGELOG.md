@@ -35,6 +35,7 @@
 - 新增 WinUI 会话状态指示：侧边栏会话项右侧显示运行中 ProgressRing；完成绿点；异常黄点
 - 新增 WinUI 设置页：查看后端日志（采集 Bridge Server stdout/stderr 到本地日志文件，并支持刷新/复制/打开日志文件夹）
 - 新增运行内联 diff：Bridge Server 推送 `diff.updated/diff.summary`，Chat 页在执行过程中展示 diff，并在输出末尾追加变更汇总（按文件净变化统计）
+- 新增 `tauri-client`：将本机 Electron 安装包中的 Codex 前端静态资源迁移到 Tauri 壳层，并提供 `window.electronBridge` 兼容桥接（含 ready/fetch/persisted-atom/shared-object/worker stub）
 
 ### 变更
 - 项目更名：`codex-bridge` → `codex-relayouter`（更新文档与应用展示名、配对二维码链接 scheme、本地数据目录等，避免与同名项目混淆）

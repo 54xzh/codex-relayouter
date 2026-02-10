@@ -23,6 +23,7 @@
 | 模块名称 | 职责 | 状态 | 文档 |
 |---------|------|------|------|
 | WinUI Client | Windows GUI（聊天/会话/diff/设置） | 开发中 | [modules/winui-client.md](modules/winui-client.md) |
+| Tauri Client | Electron 前端迁移壳层（兼容桥接） | 开发中 | [modules/tauri-client.md](modules/tauri-client.md) |
 | Android Client | Android 远程入口（配对/会话/聊天） | 开发中 | [modules/android-client.md](modules/android-client.md) |
 | Bridge Server | 统一会话/事件、驱动 Codex CLI、远程接口 | 开发中 | [modules/bridge-server.md](modules/bridge-server.md) |
 | Protocol | 前后端与多端同步协议（JSON/WS） | 开发中 | [modules/protocol.md](modules/protocol.md) |
